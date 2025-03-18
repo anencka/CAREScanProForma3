@@ -29,7 +29,8 @@ class ComprehensiveProformaCalculator:
                 other_file: str = None,
                 days_between_travel: int = 5,
                 miles_per_travel: int = 20,
-                start_date: str = "01/01/2025"):
+                start_date: str = "01/01/2025",
+                population_growth_rates: List[float] = None):
         """
         Initialize the calculator with necessary data.
 
@@ -47,15 +48,17 @@ class ComprehensiveProformaCalculator:
             days_between_travel: Number of days between travel events (default: 5)
             miles_per_travel: Number of miles traveled in each travel event (default: 20)
             start_date: Start date in format 'MM/DD/YYYY' used by exam calculator (default: "01/01/2025")
+            population_growth_rates: List of growth rates for PctPopulationReached by year
         """
         # Save travel parameters
         self.days_between_travel = days_between_travel
         self.miles_per_travel = miles_per_travel
         self.start_date = start_date
+        self.population_growth_rates = population_growth_rates
         
         # Initialize financial model calculators
         self.personnel_calculator = PersonnelExpenseCalculator()
-        self.exam_calculator = ExamRevenueCalculator(start_date=start_date)
+        self.exam_calculator = ExamRevenueCalculator(start_date=start_date, population_growth_rates=population_growth_rates)
         self.equipment_calculator = EquipmentExpenseCalculator(days_between_travel=days_between_travel, miles_per_travel=miles_per_travel)
         self.other_calculator = OtherExpensesCalculator()
         
@@ -71,7 +74,8 @@ class ComprehensiveProformaCalculator:
             revenue_file=revenue_file,
             equipment_file=equipment_file,
             other_file=other_file,
-            start_date=start_date
+            start_date=start_date,
+            population_growth_rates=population_growth_rates
         )
     
     def load_data(self, 
@@ -87,7 +91,8 @@ class ComprehensiveProformaCalculator:
                 other_file: str = None,
                 days_between_travel: int = None,
                 miles_per_travel: int = None,
-                start_date: str = None):
+                start_date: str = None,
+                population_growth_rates: List[float] = None):
         """
         Load data from DataFrames or CSV files.
         
@@ -105,6 +110,7 @@ class ComprehensiveProformaCalculator:
             days_between_travel: Number of days between travel events
             miles_per_travel: Number of miles traveled in each travel event
             start_date: Start date in format 'MM/DD/YYYY' used by exam calculator
+            population_growth_rates: List of growth rates for PctPopulationReached by year
         """
         # Update travel parameters if provided
         if days_between_travel is not None:
@@ -112,6 +118,9 @@ class ComprehensiveProformaCalculator:
         
         if miles_per_travel is not None:
             self.miles_per_travel = miles_per_travel
+            
+        if population_growth_rates is not None:
+            self.population_growth_rates = population_growth_rates
         
         # Load personnel data
         if personnel_data is not None:
@@ -126,7 +135,8 @@ class ComprehensiveProformaCalculator:
                 revenue_data=revenue_data,
                 personnel_data=personnel_data if personnel_data is not None else None,
                 equipment_data=equipment_data if equipment_data is not None else None,
-                start_date=start_date
+                start_date=start_date,
+                population_growth_rates=population_growth_rates
             )
         elif exams_file is not None and revenue_file is not None:
             self.exam_calculator.load_data(
@@ -134,7 +144,8 @@ class ComprehensiveProformaCalculator:
                 revenue_file=revenue_file,
                 personnel_file=personnel_file if personnel_file is not None else None,
                 equipment_file=equipment_file if equipment_file is not None else None,
-                start_date=start_date
+                start_date=start_date,
+                population_growth_rates=population_growth_rates
             )
             
         # Load equipment data
@@ -165,7 +176,8 @@ class ComprehensiveProformaCalculator:
                                         revenue_sources: List[str] = None,
                                         work_days_per_year: int = 250,
                                         days_between_travel: int = None,
-                                        miles_per_travel: int = None) -> Dict:
+                                        miles_per_travel: int = None,
+                                        population_growth_rates: List[float] = None) -> Dict:
         """
         Calculate a comprehensive financial proforma.
         
@@ -176,6 +188,7 @@ class ComprehensiveProformaCalculator:
             work_days_per_year: Number of working days per year
             days_between_travel: Number of days between travel events
             miles_per_travel: Number of miles traveled in each travel event
+            population_growth_rates: List of growth rates for PctPopulationReached by year
             
         Returns:
             Dictionary containing all financial results
@@ -188,6 +201,11 @@ class ComprehensiveProformaCalculator:
         if miles_per_travel is not None:
             self.miles_per_travel = miles_per_travel
             self.equipment_calculator.miles_per_travel = miles_per_travel
+            
+        # Update population growth rates if provided
+        if population_growth_rates is not None:
+            self.population_growth_rates = population_growth_rates
+            self.exam_calculator.population_growth_rates = population_growth_rates
             
         # Also update start_date in the exam_calculator
         self.exam_calculator.start_date = start_date
@@ -826,7 +844,8 @@ def calculate_comprehensive_proforma(
     revenue_sources: List[str] = None,
     work_days_per_year: int = 250,
     days_between_travel: int = 5,
-    miles_per_travel: int = 20
+    miles_per_travel: int = 20,
+    population_growth_rates: List[float] = None
 ) -> Dict:
     """
     Utility function to calculate a comprehensive proforma without having to manually instantiate the class.
@@ -843,6 +862,7 @@ def calculate_comprehensive_proforma(
         work_days_per_year: Number of working days per year
         days_between_travel: Number of days between travel events (default: 5)
         miles_per_travel: Number of miles traveled in each travel event (default: 20)
+        population_growth_rates: List of growth rates for PctPopulationReached by year
         
     Returns:
         Dictionary containing all financial results
@@ -855,12 +875,14 @@ def calculate_comprehensive_proforma(
         other_data=other_data,
         days_between_travel=days_between_travel,
         miles_per_travel=miles_per_travel,
-        start_date=start_date
+        start_date=start_date,
+        population_growth_rates=population_growth_rates
     )
     
     return calculator.calculate_comprehensive_proforma(
         start_date=start_date,
         end_date=end_date,
         revenue_sources=revenue_sources,
-        work_days_per_year=work_days_per_year
+        work_days_per_year=work_days_per_year,
+        population_growth_rates=population_growth_rates
     ) 

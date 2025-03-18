@@ -1,44 +1,44 @@
-Title,Type,Institution,Salary,Effort,Fringe,StartDate,EndDate,HoursPerDay,SupportedExams
-ProjectDirector,Staff,MCW,280000.0,0.15,0.25,01/01/2025,12/31/2030,8.0,None
-CoLead1,Staff,MCW,279686.0,0.08,0.25,01/01/2025,12/31/2030,8.0,None
-CoLead2,Staff,MCW,234090.0,0.06,0.25,01/01/2025,12/31/2030,8.0,None
-MedPhysics1,Staff,UW,250000.0,0.1,0.25,09/01/2025,8/31/2026,8.0,None
-Radiologist1,Staff,UW,350000.0,0.05,0.25,09/01/2025,8/31/2026,8.0,None
-NativeAmericanConsultant,Staff,MCW,106630.0,0.1,0.25,09/01/2025,12/31/2030,8.0,None
-RegulatoryAdvisor,Staff,MCW,105000.0,0.05,0.25,06/01/2025,12/31/2030,8.0,None
-GrantAdministrator,Staff,MCW,94039.0,0.1,0.25,01/01/2025,12/31/2030,8.0,None
-CommunityEngagementLead,Staff,MCW,120000.0,0.1,0.25,01/01/2026,12/31/2030,8.0,None
-ProjectManager,Staff,CAREScan,95000.0,1.0,0.25,06/01/2025,12/31/2030,8.0,None
-Project Assistant/Scheduler,Staff,CAREScan,80000.0,1.0,0.25,09/01/2025,12/31/2030,8.0,None
-OperationsManager,Staff,CAREScan,95000.0,1.0,0.25,01/01/2026,12/31/2030,8.0,None
-VanDriver1,VanDriver,CAREScan,56000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
-VanDriver2,VanDriver,CAREScan,56000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
-MamoDriver1,MamoDriver,CAREScan,70000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Mammography; ABUS
-MamoDriver2,MamoDriver,CAREScan,70000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Mammography; ABUS
-CTDriver1,CTDriver,CAREScan,75000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Colongraphy; LungNodule
-CTDriver2,CTDriver,CAREScan,75000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Colongraphy; LungNodule
-NursePractitioner1,NursePractitioner,CAREScan,100000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
-NursePractitioner2,NursePractitioner,CAREScan,100000.0,1.0,0.25,09/01/2027,12/31/2030,8.0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
-NursePractitioner3,NursePractitioner,CAREScan,100000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
-MammographyTech1,MammographyTech,CAREScan,80000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Mammography; ABUS
-MammographyTech2,MammographyTech,CAREScan,80000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Mammography; ABUS
-MammographyAssistant1,MammographyAssistant,CAREScan,50000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Mammography; ABUS
-CTTech1,CTTech,CAREScan,85000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Colongraphy; LungNodule
-CTTech2,CTTech,CAREScan,85000.0,0.5,0.25,09/01/2026,12/31/2030,8.0,Colongraphy; LungNodule
-CTAssistant1,CTAssistant,CAREScan,50000.0,1.0,0.25,09/01/2026,12/31/2030,8.0,Colongraphy; LungNodule
-MedDirector,Staff,UW,470000.0,0.1,0.0,06/01/2025,12/31/2030,8.0,None
-MedInformatics,Staff,UW,192226.0,0.1,0.0,06/01/2025,12/31/2030,8.0,None
-MedPhysics2,Staff,UW,192226.0,0.05,0.0,06/01/2025,12/31/2030,8.0,None
-MedPhysics3,Staff,UW,365000.0,0.05,0.0,09/01/2025,12/31/2030,8.0,None
-CTPhysics1,Staff,UW,185000.0,0.05,0.0,06/01/2025,12/31/2030,8.0,None
-RadiologistBody1,Staff,UW,311000.0,0.01,0.0,09/01/2025,12/31/2030,8.0,None
-RadiologistBody2,Staff,UW,287000.0,0.01,0.0,09/01/2025,12/31/2030,8.0,None
-RadiologistBreast1,Staff,UW,450000.0,0.01,0.0,09/01/2025,12/31/2030,8.0,None
-RadiologistThoracic1,Staff,UW,452000.0,0.01,0.0,09/01/2025,12/31/2030,8.0,None
-ProjectManager2,Staff,UW,154200.0,0.01,0.0,06/01/2025,12/31/2030,8.0,None
-AIExpert,Staff,MSOE,262550.0,0.1,0.0,06/01/2025,05/31/2026,8.0,None
-AIProgrammer,Staff,MSOE,138000.0,0.1,0.0,06/01/2025,05/31/2026,8.0,None
-AIUserExperience1,Staff,MSOE,123550.0,0.1,0.0,06/01/2025,05/31/2026,8.0,None
-AIUserExperience2,Staff,MSOE,133380.0,0.1,0.0,06/01/2025,05/31/2026,8.0,None
-AIStudent1,Staff,MSOE,12146.0,1.0,0.0,06/01/2025,05/31/2026,8.0,None
-AIStudent2,Staff,MSOE,12146.0,1.0,0.0,06/01/2025,05/31/2026,8.0,None
+﻿Title,Type,Institution,Salary,Effort,Fringe,StartDate,EndDate,HoursPerDay,SupportedExams
+ProjectDirector,Staff,MCW,280000,0.15,0.25,01/01/2025,12/31/2030,8,None
+CoLead1,Staff,MCW,279686,0.08,0.25,01/01/2025,12/31/2030,8,None
+CoLead2,Staff,MCW,234090,0.06,0.25,01/01/2025,12/31/2030,8,None
+MedPhysics1,Staff,UW,250000,0.1,0.25,09/01/2025,8/31/2026,8,None
+Radiologist1,Staff,UW,350000,0.05,0.25,09/01/2025,8/31/2026,8,None
+NativeAmericanConsultant,Staff,MCW,106630,0.1,0.25,09/01/2025,12/31/2030,8,None
+RegulatoryAdvisor,Staff,MCW,105000,0.05,0.25,06/01/2025,12/31/2030,8,None
+GrantAdministrator,Staff,MCW,94039,0.1,0.25,01/01/2025,12/31/2030,8,None
+CommunityEngagementLead,Staff,MCW,120000,0.1,0.25,01/01/2026,12/31/2030,8,None
+ProjectManager,Staff,CAREScan,95000,1,0.25,06/01/2025,12/31/2030,8,None
+Project Assistant/Scheduler,Staff,CAREScan,80000,1,0.25,09/01/2025,12/31/2030,8,None
+OperationsManager,Staff,CAREScan,95000,1,0.25,01/01/2026,12/31/2030,8,None
+VanDriver1,VanDriver,CAREScan,56000,1,0.25,09/01/2026,12/31/2030,8,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
+VanDriver2,VanDriver,CAREScan,56000,0.5,0.25,09/01/2026,12/31/2030,8,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
+MamoDriver1,MamoDriver,CAREScan,70000,1,0.25,09/01/2026,12/31/2030,8,Mammography; ABUS
+MamoDriver2,MamoDriver,CAREScan,70000,0.5,0.25,09/01/2026,12/31/2030,8,Mammography; ABUS
+CTDriver1,CTDriver,CAREScan,75000,1,0.25,09/01/2026,12/31/2030,8,Colongraphy; LungNodule
+CTDriver2,CTDriver,CAREScan,75000,0.5,0.25,09/01/2026,12/31/2030,8,Colongraphy; LungNodule
+NursePractitioner1,NursePractitioner,CAREScan,100000,1,0.25,09/01/2026,12/31/2030,8,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
+NursePractitioner2,NursePractitioner,CAREScan,100000,1,0.25,09/01/2027,12/31/2030,8,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
+NursePractitioner3,NursePractitioner,CAREScan,100000,0.5,0.25,09/01/2026,12/31/2030,8,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix
+MammographyTech1,MammographyTech,CAREScan,80000,1,0.25,09/01/2026,12/31/2030,8,Mammography; ABUS
+MammographyTech2,MammographyTech,CAREScan,80000,0.5,0.25,09/01/2026,12/31/2030,8,Mammography; ABUS
+MammographyAssistant1,MammographyAssistant,CAREScan,50000,1,0.25,09/01/2026,12/31/2030,8,Mammography; ABUS
+CTTech1,CTTech,CAREScan,85000,1,0.25,09/01/2026,12/31/2030,8,Colongraphy; LungNodule
+CTTech2,CTTech,CAREScan,85000,0.5,0.25,09/01/2026,12/31/2030,8,Colongraphy; LungNodule
+CTAssistant1,CTAssistant,CAREScan,50000,1,0.25,09/01/2026,12/31/2030,8,Colongraphy; LungNodule
+MedDirector,Staff,UW,470000,0.1,0,06/01/2025,12/31/2030,8,None
+MedInformatics,Staff,UW,192226,0.1,0,06/01/2025,12/31/2030,8,None
+MedPhysics2,Staff,UW,192226,0.05,0,06/01/2025,12/31/2030,8,None
+MedPhysics3,Staff,UW,365000,0.05,0,09/01/2025,12/31/2030,8,None
+CTPhysics1,Staff,UW,185000,0.05,0,06/01/2025,12/31/2030,8,None
+RadiologistBody1,Staff,UW,311000,0.01,0,09/01/2025,12/31/2030,8,None
+RadiologistBody2,Staff,UW,287000,0.01,0,09/01/2025,12/31/2030,8,None
+RadiologistBreast1,Staff,UW,450000,0.01,0,09/01/2025,12/31/2030,8,None
+RadiologistThoracic1,Staff,UW,452000,0.01,0,09/01/2025,12/31/2030,8,None
+ProjectManager2,Staff,UW,154200,0.01,0,06/01/2025,12/31/2030,8,None
+AIExpert,Staff,MSOE,262550,0.1,0,06/01/2025,05/31/2026,8,None
+AIProgrammer,Staff,MSOE,138000,0.1,0,06/01/2025,05/31/2026,8,None
+AIUserExperience1,Staff,MSOE,123550,0.1,0,06/01/2025,05/31/2026,8,None
+AIUserExperience2,Staff,MSOE,133380,0.1,0,06/01/2025,05/31/2026,8,None
+AIStudent1,Staff,MSOE,12146,1,0,06/01/2025,05/31/2026,8,None
+AIStudent2,Staff,MSOE,12146,1,0,06/01/2025,05/31/2026,8,None

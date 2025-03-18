@@ -11,6 +11,7 @@ from financeModels.exam_revenue import ExamRevenueCalculator, calculate_exam_rev
 from financeModels.equipment_expenses import EquipmentExpenseCalculator, calculate_equipment_expenses
 from financeModels.other_expenses import OtherExpensesCalculator, calculate_other_expenses
 from financeModels.comprehensive_proforma import ComprehensiveProformaCalculator, calculate_comprehensive_proforma
+import matplotlib.ticker as mticker
 
 # Set page configuration
 st.set_page_config(
@@ -18,6 +19,19 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
+
+# Add a reload data button in the sidebar
+with st.sidebar:
+    if st.button("🔄 Reload All Data"):
+        # Reload all data from CSV files
+        for name, filepath in CSV_FILES.items():
+            try:
+                df = load_csv(filepath)
+                st.session_state.dataframes[name] = df
+                st.toast(f"Reloaded {name} data")
+            except Exception as e:
+                st.error(f"Error reloading {name}: {e}")
+        st.success("All data reloaded from CSV files!")
 
 # Constants
 CSV_FILES = {
@@ -76,12 +90,41 @@ def load_csv(filepath: str) -> pd.DataFrame:
 def save_csv(df: pd.DataFrame, filepath: str) -> bool:
     """Save DataFrame to CSV file."""
     try:
+        # Ensure we're working with a DataFrame
+        if not isinstance(df, pd.DataFrame):
+            st.warning(f"Converting to DataFrame before saving to {filepath}")
+            try:
+                df = pd.DataFrame(df)
+            except Exception as e:
+                st.error(f"Failed to convert to DataFrame: {e}")
+                return False
+        
         # Process values for saving
         save_df = df.copy()
         for col in save_df.columns:
             save_df[col] = save_df[col].apply(process_value_for_save)
         
+        # Remove any rows that are completely empty
+        save_df = save_df.dropna(how='all')
+        
+        # Ensure there are no duplicated columns
+        if save_df.columns.duplicated().any():
+            st.warning(f"Found duplicated columns. Fixing before saving.")
+            save_df = save_df.loc[:, ~save_df.columns.duplicated()]
+        
         save_df.to_csv(filepath, index=False)
+        
+        # Also update the JSON file with the latest data
+        if os.path.exists("carescan_data.json") and 'dataframes' in st.session_state:
+            # Get the key name from the filepath
+            for key, file_path in CSV_FILES.items():
+                if file_path == filepath:
+                    # Update the corresponding DataFrame in session state
+                    st.session_state.dataframes[key] = df
+                    # Export all DataFrames to JSON to keep it in sync
+                    export_to_json(st.session_state.dataframes, "carescan_data.json")
+                    break
+        
         return True
     except Exception as e:
         st.error(f"Error saving {filepath}: {e}")
@@ -175,7 +218,7 @@ if 'dataframes' not in st.session_state:
 tabs = st.tabs([
     "Revenue", "Equipment", "Personnel", "Exams", "OtherExpenses",  # CSV Editor tabs
     "Personnel Expense Plots", "Equipment Expense Plots", "Exam Revenue Analysis", "Other Expense Plots", 
-    "Export/Import", "Comprehensive Proforma"
+    "Export/Import", "Comprehensive Proforma", "Volume Limiting Factors"
 ])
 
 # CSV Editor tabs
@@ -195,6 +238,12 @@ for i, name in enumerate(CSV_FILES.keys()):
             st.session_state.dataframes[name],
             use_container_width=True,
             num_rows="dynamic",
+            disabled=False,
+            hide_index=False,
+            column_config={
+                # Configure specific column options if needed
+                # Example: "Title": st.column_config.TextColumn("Title", help="Name of the revenue source")
+            },
             key=f"editor_{name}"
         )
         
@@ -205,6 +254,33 @@ for i, name in enumerate(CSV_FILES.keys()):
                 try:
                     # Get editor data
                     editor_data = st.session_state[f"editor_{name}"]
+                    
+                    # Check if we have edited_rows format from newer Streamlit versions
+                    if isinstance(editor_data, dict) and 'edited_rows' in editor_data:
+                        # Start with the original DataFrame
+                        df_to_save = st.session_state.dataframes[name].copy()
+                        
+                        # Apply edits from edited_rows
+                        for row_idx, row_edits in editor_data['edited_rows'].items():
+                            for col, value in row_edits.items():
+                                df_to_save.loc[int(row_idx), col] = value
+                        
+                        # If there are added rows, add them
+                        if 'added_rows' in editor_data and editor_data['added_rows']:
+                            new_rows = pd.DataFrame(editor_data['added_rows'])
+                            df_to_save = pd.concat([df_to_save, new_rows], ignore_index=True)
+                        
+                        # If there are deleted rows, remove them
+                        if 'deleted_rows' in editor_data and editor_data['deleted_rows']:
+                            df_to_save = df_to_save.drop(editor_data['deleted_rows']).reset_index(drop=True)
+                        
+                        # Save the dataframe
+                        if save_csv(df_to_save, CSV_FILES[name]):
+                            st.session_state.dataframes[name] = df_to_save
+                            st.success(f"{name} data saved successfully!")
+                        
+                        # Skip the rest of the code since we've handled it
+                        continue
                     
                     # Convert to DataFrame if needed
                     if isinstance(editor_data, pd.DataFrame):
@@ -217,8 +293,44 @@ for i, name in enumerate(CSV_FILES.keys()):
                             rows = list(editor_data.values())
                             df_to_save = pd.DataFrame(rows)
                         else:
-                            st.error(f"Could not convert {name} data to DataFrame - unexpected structure.")
-                            df_to_save = None
+                            # Try alternative conversion method for newer Streamlit versions
+                            try:
+                                # Try to construct a DataFrame from dictionary with mixed values
+                                # First, filter out any metadata keys (non-numeric keys or keys starting with _)
+                                row_data = {}
+                                for k, v in editor_data.items():
+                                    if isinstance(k, (int, float)) or (isinstance(k, str) and k.isdigit()):
+                                        row_idx = int(k) if isinstance(k, str) else k
+                                        row_data[row_idx] = v
+                                
+                                # If we have row data, convert to DataFrame
+                                if row_data:
+                                    if all(isinstance(v, dict) for v in row_data.values()):
+                                        rows = list(row_data.values())
+                                        df_to_save = pd.DataFrame(rows)
+                                    else:
+                                        # Try a different approach - if editor_data has columns
+                                        columns = set()
+                                        for v in editor_data.values():
+                                            if isinstance(v, dict):
+                                                columns.update(v.keys())
+                                        
+                                        if columns:
+                                            data = {col: [] for col in columns}
+                                            for v in editor_data.values():
+                                                if isinstance(v, dict):
+                                                    for col in columns:
+                                                        data[col].append(v.get(col, None))
+                                            df_to_save = pd.DataFrame(data)
+                                        else:
+                                            st.error(f"Could not convert {name} data to DataFrame - unexpected structure.")
+                                            df_to_save = None
+                                else:
+                                    st.error(f"Could not convert {name} data to DataFrame - no valid row data found.")
+                                    df_to_save = None
+                            except Exception as conversion_error:
+                                st.error(f"Could not convert {name} data to DataFrame - unexpected structure.")
+                                df_to_save = None
                     else:
                         st.error(f"Unexpected data type for {name}: {type(editor_data)}")
                         df_to_save = None
@@ -377,14 +489,16 @@ with tabs[6]:
             value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="equipment_start_date"
         )
     with col2:
         end_date = st.date_input(
             "End Date",
-            value=pd.to_datetime("12/31/2035", format='%m/%d/%Y'),
+            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="equipment_end_date"
         )
     
@@ -584,8 +698,9 @@ with tabs[6]:
                             ax3.grid(True, linestyle='--', alpha=0.7)
                             
                             # Format y-axis with dollar signs
-                            import matplotlib.ticker as mtick
-                            ax3.yaxis.set_major_formatter(mtick.StrMethodFormatter('${x:,.0f}'))
+                            fmt = '${x:,.0f}'
+                            tick = mticker.StrMethodFormatter(fmt)
+                            ax3.yaxis.set_major_formatter(tick)
                             
                             # Ensure legend is visible and clear
                             ax3.legend(loc='best', frameon=True, fancybox=True, shadow=True)
@@ -644,13 +759,27 @@ with tabs[7]:
         "It shows annual exam volume, revenue by source, and projected net revenue."
     )
     
-    # Year range selection
-    st.subheader("Select Year Range")
+    # Date range selection (replacing year range selection)
+    st.subheader("Select Date Range")
     col1, col2 = st.columns(2)
     with col1:
-        start_year = st.number_input("Start Year", min_value=2025, max_value=2040, value=2026, key="exam_start_year")
+        start_date = st.date_input(
+            "Start Date",
+            value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
+            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
+            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
+            key="exam_start_date"
+        )
     with col2:
-        end_year = st.number_input("End Year", min_value=2025, max_value=2040, value=2030, key="exam_end_year")
+        end_date = st.date_input(
+            "End Date",
+            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
+            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
+            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
+            key="exam_end_date"
+        )
     
     # Revenue source selection
     st.subheader("Select Revenue Sources")
@@ -677,6 +806,10 @@ with tabs[7]:
                 elif not selected_sources:
                     st.error("Please select at least one revenue source.")
                 else:
+                    # Extract years from selected dates
+                    start_year = start_date.year
+                    end_year = end_date.year
+                    
                     # Initialize the calculator
                     calculator = ExamRevenueCalculator(
                         exams_data=st.session_state.dataframes['Exams'],
@@ -995,14 +1128,16 @@ with tabs[8]:
             value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="other_expenses_start_date"
         )
     with col2:
         end_date = st.date_input(
             "End Date",
-            value=pd.to_datetime("12/31/2035", format='%m/%d/%Y'),
+            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="other_expenses_end_date"
         )
     
@@ -1288,6 +1423,13 @@ with tabs[10]:
         "It combines data from Personnel, Equipment, Exams, and Other Expenses to create a unified financial projection."
     )
     
+    # Add a note about data reloading
+    st.warning(
+        "**Important**: If you have made changes to data in other tabs, ensure these changes are reflected in your report "
+        "by using the '🔄 Reload All Data' button in the sidebar before generating the proforma. "
+        "This will ensure all calculations use the most recent data from your CSV files."
+    )
+    
     # Date range selection
     st.subheader("Select Date Range")
     col1, col2 = st.columns(2)
@@ -1297,14 +1439,16 @@ with tabs[10]:
             value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="proforma_start_date"
         )
     with col2:
         end_date = st.date_input(
             "End Date", 
-            value=pd.to_datetime("12/31/2035", format='%m/%d/%Y'),
+            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
             min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
             max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
             key="proforma_end_date"
         )
     
@@ -1342,6 +1486,48 @@ with tabs[10]:
             key="proforma_miles_per_travel"
         )
     
+    # Population Growth Rates
+    st.subheader("Population Growth Rates")
+    st.write("Set the yearly growth rate for Population Reached percentage. These growth rates will be applied cumulatively year by year.")
+    
+    # Calculate number of years in the range (up to max 5 years)
+    years_in_range = min(5, end_date.year - start_date.year + 1)
+    
+    # Default growth rates - these are decimal values where 0.05 means 5% growth
+    default_growth_rates = [0.0, 0.0, 0.05, 0.05, 0.04]
+    
+    # Create sliders for each year's growth rate
+    population_growth_rates = []
+    col1, col2 = st.columns(2)
+    
+    for i in range(years_in_range):
+        year = start_date.year + i
+        default_rate = default_growth_rates[i] if i < len(default_growth_rates) else 0.0
+        
+        # Alternate columns for better layout
+        with col1 if i % 2 == 0 else col2:
+            # Display as 0-50 representing 0%-50% but store as 0.0-0.5
+            growth_rate_pct = st.slider(
+                f"Year {i+1} ({year}) Growth Rate",
+                min_value=0,
+                max_value=50,  # 0-50%
+                value=int(default_rate * 100),  # Convert decimal to percentage
+                step=1,
+                format="%d%%",  # Display as whole number percentage
+                help=f"Population reached growth rate for year {year}",
+                key=f"population_growth_year_{i+1}"
+            )
+            # Convert back to decimal (0.0-0.5) for calculations
+            population_growth_rates.append(growth_rate_pct / 100.0)
+    
+    # Warning about cumulative growth and max 100% - update for clarity
+    st.warning(
+        "**Note**: These growth rates represent the percentage increase in population reached each year. "
+        "For example, a 5% growth means that if the population reached was 20% initially, it would grow to 21% (a 5% increase from 20%). "
+        "The growth is applied cumulatively each year to the PctPopulationReached value in the Revenue.csv file. "
+        "The system will automatically ensure the population reached doesn't exceed 100%."
+    )
+    
     # Generate proforma
     if st.button("Generate Comprehensive Proforma"):
         try:
@@ -1359,19 +1545,26 @@ with tabs[10]:
                     start_date_str = start_date.strftime('%m/%d/%Y')
                     end_date_str = end_date.strftime('%m/%d/%Y')
                     
+                    # Reload data from CSV files to ensure we have the latest data
+                    updated_data = {}
+                    for name, filepath in CSV_FILES.items():
+                        updated_data[name] = load_csv(filepath)
+                        st.session_state.dataframes[name] = updated_data[name]
+                    
                     # Calculate comprehensive proforma
                     proforma_results = calculate_comprehensive_proforma(
-                        personnel_data=st.session_state.dataframes['Personnel'],
-                        exams_data=st.session_state.dataframes['Exams'],
-                        revenue_data=st.session_state.dataframes['Revenue'],
-                        equipment_data=st.session_state.dataframes['Equipment'],
-                        other_data=st.session_state.dataframes['OtherExpenses'],
+                        personnel_data=updated_data['Personnel'],
+                        exams_data=updated_data['Exams'],
+                        revenue_data=updated_data['Revenue'],
+                        equipment_data=updated_data['Equipment'],
+                        other_data=updated_data['OtherExpenses'],
                         start_date=start_date_str,
                         end_date=end_date_str,
                         revenue_sources=selected_sources,
                         work_days_per_year=work_days,
                         days_between_travel=days_between_travel,
-                        miles_per_travel=miles_per_travel
+                        miles_per_travel=miles_per_travel,
+                        population_growth_rates=population_growth_rates
                     )
                     
                     # Get annual summary for visualizations
@@ -1420,11 +1613,11 @@ with tabs[10]:
                         
                         # Initialize the calculator for visualizations
                         calculator = ComprehensiveProformaCalculator(
-                            personnel_data=st.session_state.dataframes['Personnel'],
-                            exams_data=st.session_state.dataframes['Exams'],
-                            revenue_data=st.session_state.dataframes['Revenue'],
-                            equipment_data=st.session_state.dataframes['Equipment'],
-                            other_data=st.session_state.dataframes['OtherExpenses']
+                            personnel_data=updated_data['Personnel'],
+                            exams_data=updated_data['Exams'],
+                            revenue_data=updated_data['Revenue'],
+                            equipment_data=updated_data['Equipment'],
+                            other_data=updated_data['OtherExpenses']
                         )
                         
                         # Net Income Visualization
@@ -1539,6 +1732,105 @@ with tabs[10]:
                             else:
                                 st.write("No expense data to display")
                         
+                        # Revenue Line Breakdown
+                        st.subheader("Revenue Line Breakdown")
+                        st.info("This breakdown shows the revenue associated with each revenue line's model and " 
+                                "the percentage of overall expenses scaled to match each line's PctFullModel value.")
+                        
+                        # Get the raw exam results that include revenue source information
+                        exam_results = proforma_results['exam_results']
+                        
+                        if not exam_results.empty and 'RevenueSource' in exam_results.columns:
+                            # Calculate revenue by revenue source
+                            revenue_by_source = exam_results.groupby('RevenueSource')['Total_Revenue'].sum().reset_index()
+                            
+                            # Get the PctFullModel values for each revenue source
+                            revenue_data = updated_data['Revenue']
+                            
+                            # Create a dataframe to hold the breakdown results
+                            breakdown_data = []
+                            
+                            # Calculate total expenses across all years
+                            total_expenses = annual_summary['Total_Expenses'].sum()
+                            
+                            for _, row in revenue_by_source.iterrows():
+                                source_name = row['RevenueSource']
+                                source_revenue = row['Total_Revenue']
+                                
+                                # Find the PctFullModel for this revenue source
+                                source_row = revenue_data[revenue_data['Title'] == source_name]
+                                if not source_row.empty:
+                                    pct_full_model = source_row.iloc[0]['PctFullModel']
+                                    # Calculate scaled expenses based on PctFullModel
+                                    scaled_expenses = total_expenses * pct_full_model
+                                    # Calculate net income
+                                    net_income = source_revenue - scaled_expenses
+                                    
+                                    breakdown_data.append({
+                                        'Revenue Source': source_name,
+                                        'Revenue': source_revenue,
+                                        'PctFullModel': pct_full_model,
+                                        'Scaled Expenses': scaled_expenses,
+                                        'Net Income': net_income
+                                    })
+                            
+                            if breakdown_data:
+                                # Convert to dataframe
+                                breakdown_df = pd.DataFrame(breakdown_data)
+                                
+                                # Calculate totals
+                                total_row = {
+                                    'Revenue Source': 'TOTAL',
+                                    'Revenue': breakdown_df['Revenue'].sum(),
+                                    'PctFullModel': breakdown_df['PctFullModel'].sum(),
+                                    'Scaled Expenses': breakdown_df['Scaled Expenses'].sum(), 
+                                    'Net Income': breakdown_df['Net Income'].sum()
+                                }
+                                breakdown_df = pd.concat([breakdown_df, pd.DataFrame([total_row])], ignore_index=True)
+                                
+                                # Format for display
+                                formatted_breakdown = breakdown_df.copy()
+                                formatted_breakdown['Revenue'] = formatted_breakdown['Revenue'].map('${:,.2f}'.format)
+                                formatted_breakdown['PctFullModel'] = formatted_breakdown['PctFullModel'].map('{:.1%}'.format)
+                                formatted_breakdown['Scaled Expenses'] = formatted_breakdown['Scaled Expenses'].map('${:,.2f}'.format)
+                                formatted_breakdown['Net Income'] = formatted_breakdown['Net Income'].map('${:,.2f}'.format)
+                                
+                                st.dataframe(formatted_breakdown)
+                                
+                                # Create a bar chart showing revenue vs scaled expenses for each source
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                # Skip the total row for the chart
+                                chart_df = breakdown_df[breakdown_df['Revenue Source'] != 'TOTAL']
+                                
+                                # Set up bar positions
+                                x = np.arange(len(chart_df))
+                                width = 0.35
+                                
+                                # Create bars
+                                ax.bar(x - width/2, chart_df['Revenue'], width, label='Revenue')
+                                ax.bar(x + width/2, chart_df['Scaled Expenses'], width, label='Scaled Expenses')
+                                
+                                # Add labels and title
+                                ax.set_xlabel('Revenue Source')
+                                ax.set_ylabel('Amount ($)')
+                                ax.set_title('Revenue vs Scaled Expenses by Revenue Line')
+                                ax.set_xticks(x)
+                                ax.set_xticklabels(chart_df['Revenue Source'])
+                                ax.legend()
+                                
+                                # Format y-axis with dollar signs
+                                fmt = '${x:,.0f}'
+                                tick = mticker.StrMethodFormatter(fmt)
+                                ax.yaxis.set_major_formatter(tick)
+                                
+                                # Display the chart
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No revenue source data available for breakdown.")
+                        else:
+                            st.warning("No revenue source data available in the exam results.")
+                        
                         # Allow user to download the results as CSV
                         st.subheader("Download Results")
                         csv = annual_summary.to_csv(index=False)
@@ -1563,6 +1855,469 @@ with tabs[10]:
             import traceback
             st.error(f"Error generating comprehensive proforma: {str(e)}")
             st.error(traceback.format_exc())
+
+# Volume Limiting Factors tab
+with tabs[11]:
+    st.header("Volume Limiting Factors")
+    
+    # Explanation of this tab
+    st.info(
+        "This tab shows what factors are limiting the exam volume for each revenue model. "
+        "It provides visualizations of exam usage compared to their maximum achievable volumes, "
+        "as well as the utilization percentage of each personnel type."
+    )
+    
+    # Add a note about data reloading
+    st.warning(
+        "**Important**: If you have made changes to data in other tabs, ensure these changes are reflected in your analysis "
+        "by using the '🔄 Reload All Data' button in the sidebar before generating the analysis. "
+        "This will ensure all calculations use the most recent data from your CSV files."
+    )
+    
+    # Date range selection
+    st.subheader("Select Date Range")
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input(
+            "Start Date", 
+            value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
+            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
+            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
+            key="volume_start_date"
+        )
+    with col2:
+        end_date = st.date_input(
+            "End Date", 
+            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
+            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
+            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
+            format="MM/DD/YYYY",
+            key="volume_end_date"
+        )
+    
+    # Revenue source selection
+    st.subheader("Select Revenue Sources")
+    if 'Revenue' in st.session_state.dataframes:
+        revenue_sources = st.session_state.dataframes['Revenue']['Title'].tolist()
+        selected_sources = st.multiselect("Revenue Sources", revenue_sources, default=revenue_sources, key="volume_revenue_sources")
+    else:
+        selected_sources = []
+        st.error("Revenue data is not available. Please upload Revenue.csv file.")
+    
+    # Working days per year option
+    work_days = st.number_input("Working Days Per Year", min_value=200, max_value=300, value=250, key="volume_work_days")
+    
+    # Travel parameters
+    st.subheader("Travel Parameters")
+    travel_col1, travel_col2 = st.columns(2)
+    with travel_col1:
+        days_between_travel = st.number_input(
+            "Days Between Travel",
+            min_value=1,
+            max_value=30,
+            value=5,
+            help="Number of days between travel events",
+            key="volume_days_between_travel"
+        )
+    with travel_col2:
+        miles_per_travel = st.number_input(
+            "Miles Per Travel",
+            min_value=1,
+            max_value=100,
+            value=20,
+            help="Number of miles traveled in each travel event",
+            key="volume_miles_per_travel"
+        )
+    
+    # Population Growth Rates
+    st.subheader("Population Growth Rates")
+    st.write("Set the yearly growth rate for Population Reached percentage. These growth rates will be applied cumulatively year by year.")
+    
+    # Calculate number of years in the range (up to max 5 years)
+    years_in_range = min(5, end_date.year - start_date.year + 1)
+    
+    # Default growth rates - these are decimal values where 0.05 means 5% growth
+    default_growth_rates = [0.0, 0.0, 0.05, 0.05, 0.04]
+    
+    # Create sliders for each year's growth rate
+    population_growth_rates = []
+    col1, col2 = st.columns(2)
+    
+    for i in range(years_in_range):
+        year = start_date.year + i
+        default_rate = default_growth_rates[i] if i < len(default_growth_rates) else 0.0
+        
+        # Alternate columns for better layout
+        with col1 if i % 2 == 0 else col2:
+            # Display as 0-50 representing 0%-50% but store as 0.0-0.5
+            growth_rate_pct = st.slider(
+                f"Year {i+1} ({year}) Growth Rate",
+                min_value=0,
+                max_value=50,  # 0-50%
+                value=int(default_rate * 100),  # Convert decimal to percentage
+                step=1,
+                format="%d%%",  # Display as whole number percentage
+                help=f"Population reached growth rate for year {year}",
+                key=f"volume_population_growth_year_{i+1}"
+            )
+            # Convert back to decimal (0.0-0.5) for calculations
+            population_growth_rates.append(growth_rate_pct / 100.0)
+    
+    # Generate analysis
+    if st.button("Generate Volume Analysis"):
+        try:
+            with st.spinner("Calculating volume limitations and generating visualizations..."):
+                # Check if required data is available
+                required_tables = ['Revenue', 'Exams', 'Personnel', 'Equipment']
+                missing_tables = [table for table in required_tables if table not in st.session_state.dataframes or st.session_state.dataframes[table].empty]
+                
+                if missing_tables:
+                    st.error(f"The following required data is missing: {', '.join(missing_tables)}")
+                elif not selected_sources:
+                    st.error("Please select at least one revenue source.")
+                else:
+                    # Convert dates to string format for the calculator
+                    start_date_str = start_date.strftime('%m/%d/%Y')
+                    end_date_str = end_date.strftime('%m/%d/%Y')
+                    
+                    # Reload data from CSV files to ensure we have the latest data
+                    updated_data = {}
+                    for name, filepath in CSV_FILES.items():
+                        updated_data[name] = load_csv(filepath)
+                        st.session_state.dataframes[name] = updated_data[name]
+                    
+                    # Initialize the exam calculator for analysis
+                    calculator = ExamRevenueCalculator(
+                        exams_data=updated_data['Exams'],
+                        revenue_data=updated_data['Revenue'],
+                        personnel_data=updated_data['Personnel'],
+                        equipment_data=updated_data['Equipment'],
+                        start_date=start_date_str,
+                        population_growth_rates=population_growth_rates
+                    )
+                    
+                    # Create tabs for different visualizations
+                    viz_tabs = st.tabs(["Exam Volume Analysis", "Personnel Utilization"])
+                    
+                    # Exam Volume Analysis tab
+                    with viz_tabs[0]:
+                        st.subheader("Exam Volume Analysis")
+                        st.write("This visualization shows each exam's actual volume compared to its maximum achievable volume.")
+                        
+                        # Process and display data for each year
+                        start_year = start_date.year
+                        end_year = end_date.year
+                        
+                        for year in range(start_year, end_year + 1):
+                            st.markdown(f"### Year {year}")
+                            
+                            # Create a figure for the year plots with subplots for each revenue source
+                            fig, axes = plt.subplots(len(selected_sources), 1, figsize=(10, 5 * len(selected_sources)), sharex=True)
+                            
+                            # Use a single axis if there's only one revenue source
+                            if len(selected_sources) == 1:
+                                axes = [axes]
+                            
+                            # Process each revenue source
+                            for i, revenue_source in enumerate(selected_sources):
+                                max_volumes = pd.DataFrame()
+                                actual_volumes = pd.DataFrame()
+                                
+                                try:
+                                    # Calculate max reachable volume
+                                    max_volumes = calculator.calculate_max_reachable_volume(revenue_source)
+                                    
+                                    # Calculate actual volume
+                                    actual_volumes = calculator.calculate_annual_exam_volume(year, revenue_source, work_days)
+                                    
+                                    # Prepare data for plotting
+                                    # Check if required columns exist in the DataFrames
+                                    if "Exam" not in max_volumes.columns or "MaxReachableVolume" not in max_volumes.columns:
+                                        st.warning(f"Required columns missing in max_volumes data for {revenue_source}: {max_volumes.columns.tolist()}. Skipping.")
+                                        continue
+                                        
+                                    if "Exam" not in actual_volumes.columns or "AnnualVolume" not in actual_volumes.columns:
+                                        st.warning(f"Required columns missing in actual_volumes data for {revenue_source}: {actual_volumes.columns.tolist()}. Skipping.")
+                                        continue
+                                    
+                                    # Display debugging information
+                                    st.caption(f"Found {len(max_volumes)} exam(s) with max volumes and {len(actual_volumes)} exam(s) with actual volumes for {revenue_source}")
+                                        
+                                    # Merge the data and handle mismatches gracefully
+                                    combined_df = pd.merge(
+                                        max_volumes[["Exam", "MaxReachableVolume"]],
+                                        actual_volumes[["Exam", "AnnualVolume"]],
+                                        on="Exam",
+                                        how='outer'
+                                    ).fillna(0)
+                                    
+                                    # Check if we have any data after merging
+                                    if combined_df.empty:
+                                        st.warning(f"No matching exams found between max volumes and actual volumes for {revenue_source}.")
+                                        continue
+                                    
+                                    # Calculate percentage of max
+                                    combined_df['UsagePercentage'] = (combined_df['AnnualVolume'] / combined_df['MaxReachableVolume'] * 100).fillna(0)
+                                    combined_df['UsagePercentage'] = combined_df['UsagePercentage'].clip(upper=100)  # Cap at 100%
+                                    
+                                    # Sort by usage percentage for better visualization
+                                    combined_df = combined_df.sort_values(by='UsagePercentage', ascending=False)
+                                    
+                                    # Plot the data
+                                    ax = axes[i]
+                                    bar_width = 0.35
+                                    bar_positions = np.arange(len(combined_df))
+                                    
+                                    # Plot max volume bars
+                                    max_bars = ax.bar(bar_positions, combined_df['MaxReachableVolume'], bar_width, 
+                                                     label='Max Achievable Volume', alpha=0.7, color='lightblue')
+                                    
+                                    # Plot actual volume bars
+                                    actual_bars = ax.bar(bar_positions, combined_df['AnnualVolume'], bar_width, 
+                                                        label='Actual Volume', alpha=0.9, color='darkblue')
+                                    
+                                    # Add percentage text on top of each bar
+                                    for j, (_, row) in enumerate(combined_df.iterrows()):
+                                        ax.text(j, row['AnnualVolume'] + (0.05 * max(combined_df['MaxReachableVolume'])), 
+                                               f"{row['UsagePercentage']:.1f}%", 
+                                               ha='center', va='bottom', fontsize=8, rotation=0)
+                                    
+                                    # Set title and labels
+                                    ax.set_title(f"Exam Volume for {revenue_source} in {year}")
+                                    ax.set_ylabel('Volume (# of exams)')
+                                    ax.set_xticks(bar_positions)
+                                    ax.set_xticklabels(combined_df["Exam"], rotation=45, ha='right')
+                                    ax.legend()
+                                    
+                                    # Format y-axis to show whole numbers
+                                    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, pos: f'{int(x):,}'))
+                                    
+                                    # Add a grid for better readability
+                                    ax.grid(axis='y', linestyle='--', alpha=0.7)
+                                    
+                                    # Display the data table below the plots
+                                    st.write(f"#### {revenue_source} - {year} Volume Data")
+                                    
+                                    # Format the dataframe for display
+                                    display_df = combined_df.copy()
+                                    display_df['MaxReachableVolume'] = display_df['MaxReachableVolume'].map('{:,.0f}'.format)
+                                    display_df['AnnualVolume'] = display_df['AnnualVolume'].map('{:,.0f}'.format)
+                                    display_df['UsagePercentage'] = display_df['UsagePercentage'].map('{:.1f}%'.format)
+                                    
+                                    # Rename columns for better display
+                                    display_df = display_df.rename(columns={
+                                        'Exam': 'Exam',
+                                        'MaxReachableVolume': 'Max Achievable Volume',
+                                        'AnnualVolume': 'Actual Annual Volume',
+                                        'UsagePercentage': 'Usage Percentage'
+                                    })
+                                    
+                                    st.dataframe(display_df, use_container_width=True)
+                                    
+                                    # Identify limiting factors
+                                    st.write("##### Limiting Factors Analysis")
+                                    
+                                    # Get available staff and equipment
+                                    available_staff = calculator.get_available_staff(f"01/01/{year}")
+                                    available_equipment = calculator.get_available_equipment(f"01/01/{year}")
+                                    
+                                    # Calculate exams per day
+                                    exams_per_day = calculator.calculate_exams_per_day(f"01/01/{year}", revenue_source)
+                                    
+                                    if not exams_per_day.empty:
+                                        # Determine limiting factors for each exam
+                                        limiting_factors = []
+                                        
+                                        for _, row in exams_per_day.iterrows():
+                                            if "Title" not in row and "Exam" not in row: continue
+                                            exam = row["Title"] if "Title" in row else row["Exam"]
+                                            if exam not in combined_df["Exam"].values: continue
+                                            max_vol = combined_df.loc[combined_df["Exam"] == exam, "MaxReachableVolume"].values[0]
+                                            actual_vol = combined_df.loc[combined_df["Exam"] == exam, 'AnnualVolume'].values[0]
+                                            
+                                            if actual_vol < max_vol * 0.99:  # If we're not achieving at least 99% of max
+                                                # Check if limited by equipment
+                                                equipment_limited = row['LimitedByEquipment'] if 'LimitedByEquipment' in row else False
+                                                
+                                                # Check if limited by staff
+                                                staff_limited = row['LimitedByStaff'] if 'LimitedByStaff' in row else False
+                                                staff_limiting_type = row['LimitingStaffType'] if 'LimitingStaffType' in row else None
+                                                
+                                                factor = "Population demographics"  # Default
+                                                
+                                                if equipment_limited:
+                                                    equipment_type = row['Equipment'] if 'Equipment' in row else None
+                                                    factor = f"Equipment availability ({equipment_type})"
+                                                elif staff_limited and staff_limiting_type:
+                                                    factor = f"Staff availability ({staff_limiting_type})"
+                                                
+                                                limiting_factors.append({
+                                                    'Exam': exam,
+                                                    'Limiting Factor': factor,
+                                                    'Max Volume': int(max_vol),
+                                                    'Actual Volume': int(actual_vol),
+                                                    'Usage %': f"{actual_vol/max_vol*100:.1f}%" if max_vol > 0 else "N/A"
+                                                })
+                                        
+                                        if limiting_factors:
+                                            lf_df = pd.DataFrame(limiting_factors)
+                                            st.dataframe(lf_df, use_container_width=True)
+                                        else:
+                                            st.write("No significant limiting factors found.")
+                                    else:
+                                        st.write("Could not determine exams per day.")
+                                
+                                except Exception as e:
+                                    st.error(f"Error processing {revenue_source}: {str(e)}")
+                            
+                            # Adjust layout and show the plot
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                    
+                    # Personnel Utilization tab
+                    with viz_tabs[1]:
+                        st.subheader("Personnel Utilization Analysis")
+                        st.write("This visualization shows the utilization percentage of each personnel type across all revenue sources.")
+                        
+                        # Process and display data for each year
+                        for year in range(start_year, end_year + 1):
+                            st.markdown(f"### Year {year}")
+                            
+                            # Initialize a dictionary to store staff usage hours by type
+                            staff_usage = {}
+                            staff_capacity = {}
+                            
+                            # Initialize staff capacity from available staff
+                            available_staff = calculator.get_available_staff(f"01/01/{year}")
+                            staff_hours = calculator.calculate_staff_hours_available(f"01/01/{year}")
+                            
+                            for staff_type, hours in staff_hours.items():
+                                staff_capacity[staff_type] = hours * work_days
+                                staff_usage[staff_type] = 0
+                            
+                            # For each revenue source, calculate staff hours used
+                            for revenue_source in selected_sources:
+                                try:
+                                    # Calculate annual exam volume for this revenue source
+                                    annual_volume = calculator.calculate_annual_exam_volume(year, revenue_source, work_days)
+                                    
+                                    # For each exam, calculate staff hours used
+                                    for _, exam_row in annual_volume.iterrows():
+                                        if "Title" not in exam_row and "Exam" not in exam_row: continue
+                                        exam_title = exam_row["Title"] if "Title" in exam_row else exam_row["Exam"]
+                                        annual_volume_num = exam_row['AnnualVolume']
+                                        
+                                        # Get the exam details
+                                        exam_data = updated_data['Exams'][updated_data['Exams']['Title'] == exam_title]
+                                        
+                                        if not exam_data.empty:
+                                            # Get staff types for this exam
+                                            staff_types = exam_data.iloc[0]['Staff']
+                                            if isinstance(staff_types, list):
+                                                staff_list = staff_types
+                                            else:
+                                                staff_list = [s.strip() for s in str(staff_types).split(';')]
+                                            
+                                            # Get exam duration in hours
+                                            duration_hours = exam_data.iloc[0]['Duration'] / 60.0 if 'Duration' in exam_data else 0
+                                            
+                                            # Add hours to each staff type
+                                            for staff_type in staff_list:
+                                                if staff_type and staff_type.strip():
+                                                    staff_type = staff_type.strip()
+                                                    if staff_type not in staff_usage:
+                                                        staff_usage[staff_type] = 0
+                                                    
+                                                    # Add the hours used for this exam
+                                                    staff_usage[staff_type] += annual_volume_num * duration_hours
+                                except Exception as e:
+                                    st.error(f"Error calculating staff usage for {revenue_source}: {str(e)}")
+                            
+                            # Calculate utilization percentages
+                            utilization = []
+                            for staff_type, hours_used in staff_usage.items():
+                                capacity = staff_capacity.get(staff_type, 0)
+                                usage_pct = (hours_used / capacity * 100) if capacity > 0 else 0
+                                utilization.append({
+                                    'Staff Type': staff_type,
+                                    'Hours Used': hours_used,
+                                    'Total Capacity (Hours)': capacity,
+                                    'Utilization %': usage_pct
+                                })
+                            
+                            if utilization:
+                                # Convert to dataframe and sort
+                                util_df = pd.DataFrame(utilization)
+                                util_df = util_df.sort_values(by='Utilization %', ascending=False)
+                                
+                                # Plot the utilization percentages
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                
+                                # Create bars
+                                bar_positions = np.arange(len(util_df))
+                                bars = ax.bar(bar_positions, util_df['Utilization %'], 
+                                             color=['red' if pct > 100 else 'green' for pct in util_df['Utilization %']])
+                                
+                                # Add data labels
+                                for i, (_, row) in enumerate(util_df.iterrows()):
+                                    ax.text(i, row['Utilization %'] + 1, f"{row['Utilization %']:.1f}%", 
+                                          ha='center', va='bottom', fontsize=9)
+                                
+                                # Add a horizontal line at 100%
+                                ax.axhline(y=100, linestyle='--', color='r', alpha=0.7)
+                                
+                                # Set title and labels
+                                ax.set_title(f"Personnel Utilization in {year}")
+                                ax.set_ylabel('Utilization %')
+                                ax.set_xticks(bar_positions)
+                                ax.set_xticklabels(util_df['Staff Type'], rotation=45, ha='right')
+                                
+                                # Add grid and adjust layout
+                                ax.grid(axis='y', linestyle='--', alpha=0.7)
+                                ax.set_ylim(0, max(110, util_df['Utilization %'].max() * 1.1))
+                                plt.tight_layout()
+                                
+                                # Display the plot
+                                st.pyplot(fig)
+                                
+                                # Display the data table
+                                display_df = util_df.copy()
+                                display_df['Hours Used'] = display_df['Hours Used'].map('{:,.1f}'.format)
+                                display_df['Total Capacity (Hours)'] = display_df['Total Capacity (Hours)'].map('{:,.1f}'.format)
+                                display_df['Utilization %'] = display_df['Utilization %'].map('{:.1f}%'.format)
+                                
+                                st.dataframe(display_df, use_container_width=True)
+                                
+                                # Highlight potential staffing issues
+                                over_utilized = util_df[util_df['Utilization %'] > 100]
+                                if not over_utilized.empty:
+                                    st.warning("### Potential Staffing Issues")
+                                    st.write("The following staff types are over-utilized and may be limiting exam volume:")
+                                    for _, row in over_utilized.iterrows():
+                                        st.write(f"- **{row['Staff Type']}**: {row['Utilization %']:.1f}% utilization")
+                                    
+                                    st.write("Recommendations:")
+                                    st.write("1. Consider hiring additional staff for these roles")
+                                    st.write("2. Reduce exam volume expectations")
+                                    st.write("3. Increase staff efficiency or adjust exam durations")
+                                
+                                # Highlight under-utilized staff
+                                under_utilized = util_df[util_df['Utilization %'] < 50]
+                                if not under_utilized.empty:
+                                    st.info("### Efficiency Opportunities")
+                                    st.write("The following staff types are under-utilized and may present efficiency opportunities:")
+                                    for _, row in under_utilized.iterrows():
+                                        st.write(f"- **{row['Staff Type']}**: {row['Utilization %']:.1f}% utilization")
+                                    
+                                    st.write("Recommendations:")
+                                    st.write("1. Consider reducing staff levels for these roles")
+                                    st.write("2. Cross-train these staff for other responsibilities")
+                                    st.write("3. Increase exam offerings that utilize these staff types")
+                            else:
+                                st.write("No personnel utilization data available.")
+        except Exception as e:
+            st.error(f"An error occurred during analysis: {str(e)}")
 
 # Display sidebar with information
 with st.sidebar:

@@ -1,22 +1,22 @@
 Title,Vendor,Amount,AppliedDate,Description,Expense
-TelemedicineStack,NexusMD,600000.0,06/01/2025,Telemedicine Software Development,True
-TelemedicineSubscription,NexusMD,150000.0,06/01/2026,Telemedicine Software Subscription 2026,True
-TelemedicineSubscription,NexusMD,150000.0,06/01/2027,Telemedicine Software Subscription 2027,True
-TelemedicineSubscription,NexusMD,150000.0,06/01/2028,Telemedicine Software Subscription 2028,True
-TelemedicineSubscription,NexusMD,150000.0,06/01/2029,Telemedicine Software Subscription 2029,True
-TelemedicineSubscription,NexusMD,150000.0,06/01/2030,Telemedicine Software Subscription 2030,True
-CommunityOutreach,InPower,450000.0,06/01/2025,Community Outreach 2025,True
-CommunityOutreach,InPower,300000.0,06/01/2026,Community Outreach 2026,True
-CommunityOutreach,InPower,123550.0,06/01/2027,Community Outreach 2027,True
-CommunityOutreach,InPower,125000.0,06/01/2028,Community Outreach 2028,True
-CommunityOutreach,InPower,125000.0,06/01/2029,Community Outreach 2029,True
-CommunityOutreach,InPower,125000.0,06/01/2030,Community Outreach 2030,True
-CommunityTranslation,WiscHealthLiteracy,60167.0,06/01/2025,Community Translation 2025,True
-CommunityTranslation,WiscHealthLiteracy,60167.0,06/01/2026,Community Translation 2026,True
-Travel,CAREScan,8075.0,06/01/2025,Leadership Travel 2025,True
-Travel,CAREScan,8075.0,06/01/2026,Leadership Travel 2026,True
-Travel,CAREScan,6000.0,06/01/2025,Covenings Travel 2025,True
-Travel,CAREScan,7000.0,06/01/2027,Covenings Travel 2027,True
-Travel,CAREScan,5000.0,06/01/2026,Tribal Nation Travel 2026,True
-Travel,CAREScan,36750.0,06/01/2027,Tribal Nation Travel 2027,True
-InitialInvestment,EDA,9375357.0,01/01/2025,Initial Investment,False
+TelemedicineStack,NexusMD,600000,06/01/2025,Telemedicine Software Development,True
+TelemedicineSubscription,NexusMD,20000,06/01/2026,Telemedicine Software Subscription 2026,True
+TelemedicineSubscription,NexusMD,20000,06/01/2027,Telemedicine Software Subscription 2027,True
+TelemedicineSubscription,NexusMD,20000,06/01/2028,Telemedicine Software Subscription 2028,True
+TelemedicineSubscription,NexusMD,20000,06/01/2029,Telemedicine Software Subscription 2029,True
+TelemedicineSubscription,NexusMD,20000,06/01/2030,Telemedicine Software Subscription 2030,True
+CommunityOutreach,InPower,450000,06/01/2025,Community Outreach 2025,True
+CommunityOutreach,InPower,300000,06/01/2026,Community Outreach 2026,True
+CommunityOutreach,InPower,123550,06/01/2027,Community Outreach 2027,True
+CommunityOutreach,InPower,125000,06/01/2028,Community Outreach 2028,True
+CommunityOutreach,InPower,125000,06/01/2029,Community Outreach 2029,True
+CommunityOutreach,InPower,125000,06/01/2030,Community Outreach 2030,True
+CommunityTranslation,WiscHealthLiteracy,60167,06/01/2025,Community Translation 2025,True
+CommunityTranslation,WiscHealthLiteracy,60167,06/01/2026,Community Translation 2026,True
+Travel,CAREScan,8075,06/01/2025,Leadership Travel 2025,True
+Travel,CAREScan,8075,06/01/2026,Leadership Travel 2026,True
+Travel,CAREScan,6000,06/01/2025,Covenings Travel 2025,True
+Travel,CAREScan,7000,06/01/2027,Covenings Travel 2027,True
+Travel,CAREScan,5000,06/01/2026,Tribal Nation Travel 2026,True
+Travel,CAREScan,36750,06/01/2027,Tribal Nation Travel 2027,True
+InitialInvestment,EDA,9375357,01/01/2025,Initial Investment,False

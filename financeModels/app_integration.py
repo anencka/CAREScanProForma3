@@ -52,7 +52,8 @@ def display_personnel_expenses_dashboard(personnel_data: pd.DataFrame):
             "Start Date",
             min_date,
             min_value=min_date,
-            max_value=max_date
+            max_value=max_date,
+            format="MM/DD/YYYY"
         )
     
     with col2:
@@ -60,7 +61,8 @@ def display_personnel_expenses_dashboard(personnel_data: pd.DataFrame):
             "End Date",
             max_date,
             min_value=min_date,
-            max_value=max_date
+            max_value=max_date,
+            format="MM/DD/YYYY"
         )
     
     # Convert dates to string format for the calculator
