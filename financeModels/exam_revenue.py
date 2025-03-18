@@ -19,7 +19,8 @@ class ExamRevenueCalculator:
                 exams_file: str = None,
                 revenue_file: str = None,
                 personnel_file: str = None,
-                equipment_file: str = None):
+                equipment_file: str = None,
+                start_date: str = "01/01/2025"):
         """
         Initialize the calculator with necessary data.
 
@@ -32,7 +33,11 @@ class ExamRevenueCalculator:
             revenue_file: Path to a CSV file containing revenue source data
             personnel_file: Path to a CSV file containing personnel data
             equipment_file: Path to a CSV file containing equipment data
+            start_date: Start date in format 'MM/DD/YYYY' used for calculating moving days
         """
+        # Set the start date for calculating moving days
+        self.start_date = start_date
+        
         # Load data from DataFrames if provided, otherwise from files
         self.exams_data = exams_data.copy() if exams_data is not None else None
         self.revenue_data = revenue_data.copy() if revenue_data is not None else None
@@ -82,6 +87,16 @@ class ExamRevenueCalculator:
                 format='%m/%d/%Y', 
                 errors='coerce'
             )
+            
+            # Add ConstructionTime column with a default of 0 days if it doesn't exist
+            if 'ConstructionTime' not in self.equipment_data.columns:
+                self.equipment_data['ConstructionTime'] = 0
+                
+            # Calculate StartDate based on PurchaseDate and ConstructionTime
+            self.equipment_data['StartDate'] = self.equipment_data.apply(
+                lambda row: row['PurchaseDate'] + pd.DateOffset(days=row['ConstructionTime']), 
+                axis=1
+            )
         
         # Convert duration in minutes to hours for exams
         if 'Duration' in self.exams_data.columns:
@@ -106,7 +121,8 @@ class ExamRevenueCalculator:
                  exams_file: str = None,
                  revenue_file: str = None,
                  personnel_file: str = None,
-                 equipment_file: str = None):
+                 equipment_file: str = None,
+                 start_date: str = None):
         """
         Load data from DataFrames or CSV files.
         
@@ -119,7 +135,12 @@ class ExamRevenueCalculator:
             revenue_file: Path to a CSV file containing revenue source data
             personnel_file: Path to a CSV file containing personnel data
             equipment_file: Path to a CSV file containing equipment data
+            start_date: Start date in format 'MM/DD/YYYY' used for calculating moving days
         """
+        # Update start date if provided
+        if start_date is not None:
+            self.start_date = start_date
+            
         if exams_data is not None:
             self.exams_data = exams_data.copy()
         elif exams_file is not None:
@@ -243,8 +264,22 @@ class ExamRevenueCalculator:
         # Convert date to datetime
         check_date = pd.to_datetime(date, format='%m/%d/%Y')
         
-        # Filter equipment that has been purchased by the check date
-        available_equipment = self.equipment_data[self.equipment_data['PurchaseDate'] <= check_date]
+        # Make a copy of the equipment data
+        equipment_data = self.equipment_data.copy()
+        
+        # Calculate StartDate if it's not already present
+        if 'StartDate' not in equipment_data.columns:
+            if 'ConstructionTime' in equipment_data.columns:
+                equipment_data['StartDate'] = equipment_data.apply(
+                    lambda row: row['PurchaseDate'] + pd.DateOffset(days=row['ConstructionTime']), 
+                    axis=1
+                )
+            else:
+                # If construction time is not provided, assume equipment is available immediately
+                equipment_data['StartDate'] = equipment_data['PurchaseDate']
+        
+        # Filter equipment that has been purchased and is ready for use by the check date
+        available_equipment = equipment_data[equipment_data['StartDate'] <= check_date]
         
         return available_equipment
     
@@ -364,6 +399,31 @@ class ExamRevenueCalculator:
         
         # First calculate proportions based on max reachable volumes
         total_max_volume = max_volumes_df['MaxReachableVolume'].sum()
+        
+        # Add equipment setup/takedown impact
+        equipment_df = self.equipment_data.copy()
+        
+        # Determine if this is a moving day (every 5th day)
+        date_dt = pd.to_datetime(date)
+        
+        # Ensure we have a start_date attribute
+        if not hasattr(self, 'start_date') or self.start_date is None:
+            self.start_date = "01/01/2025"
+            
+        # Calculate days since start
+        start_dt = pd.to_datetime(self.start_date)
+        days_since_start = (date_dt - start_dt).days
+        is_moving_day = (days_since_start % 5 == 0)
+        
+        if is_moving_day:
+            # On moving days, reduce available hours by setup/takedown time
+            setup_time = equipment_df['SetupTime'].sum()  # in hours
+            takedown_time = equipment_df['TakedownTime'].sum()  # in hours
+            moving_time = setup_time + takedown_time
+            
+            # Adjust available hours for all staff types
+            for staff_type in staff_hours:
+                staff_hours[staff_type] = max(0, staff_hours[staff_type] - moving_time)
         
         for _, row in max_volumes_df.iterrows():
             exam_title = row['Exam']
@@ -550,14 +610,17 @@ class ExamRevenueCalculator:
 
 
 # Utility functions for direct use without instantiating the class
-def calculate_exam_revenue(exams_data: pd.DataFrame, 
-                          revenue_data: pd.DataFrame, 
-                          personnel_data: pd.DataFrame,
-                          equipment_data: pd.DataFrame,
-                          start_year: int, 
-                          end_year: int,
-                          revenue_sources: List[str] = None,
-                          work_days_per_year: int = 250) -> pd.DataFrame:
+def calculate_exam_revenue(
+    exams_data: pd.DataFrame,
+    revenue_data: pd.DataFrame,
+    personnel_data: pd.DataFrame,
+    equipment_data: pd.DataFrame,
+    start_year: int,
+    end_year: int,
+    revenue_sources: List[str] = None,
+    work_days_per_year: int = 250,
+    start_date: str = "01/01/2025"
+) -> pd.DataFrame:
     """
     Utility function to calculate exam revenue without having to manually instantiate the class.
     
@@ -570,6 +633,7 @@ def calculate_exam_revenue(exams_data: pd.DataFrame,
         end_year: Ending year for the analysis
         revenue_sources: List of revenue sources to analyze (default: all revenue sources)
         work_days_per_year: Number of working days per year
+        start_date: Start date in format 'MM/DD/YYYY' used for calculating moving days
         
     Returns:
         DataFrame with annual exam volumes, revenue, and expenses for all years and revenue sources
@@ -578,7 +642,8 @@ def calculate_exam_revenue(exams_data: pd.DataFrame,
         exams_data=exams_data,
         revenue_data=revenue_data,
         personnel_data=personnel_data,
-        equipment_data=equipment_data
+        equipment_data=equipment_data,
+        start_date=start_date
     )
     
     return calculator.calculate_multi_year_exam_revenue(

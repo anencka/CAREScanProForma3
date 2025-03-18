@@ -388,6 +388,28 @@ with tabs[6]:
             key="equipment_end_date"
         )
     
+    # Travel parameters
+    st.subheader("Travel Parameters")
+    travel_col1, travel_col2 = st.columns(2)
+    with travel_col1:
+        days_between_travel = st.number_input(
+            "Days Between Travel",
+            min_value=1,
+            max_value=30,
+            value=5,
+            help="Number of days between travel events",
+            key="equipment_days_between_travel"
+        )
+    with travel_col2:
+        miles_per_travel = st.number_input(
+            "Miles Per Travel",
+            min_value=1,
+            max_value=100,
+            value=20,
+            help="Number of miles traveled in each travel event",
+            key="equipment_miles_per_travel"
+        )
+    
     # Generate visualizations
     if st.button("Generate Equipment Expense Plots", key="generate_equipment_plots"):
         try:
@@ -400,9 +422,13 @@ with tabs[6]:
                     start_date_str = start_date.strftime('%m/%d/%Y')
                     end_date_str = end_date.strftime('%m/%d/%Y')
                     
-                    # Initialize the calculator
+                    # Initialize the calculator with travel parameters
                     equipment_data = st.session_state.dataframes['Equipment']
-                    calculator = EquipmentExpenseCalculator(equipment_data=equipment_data)
+                    calculator = EquipmentExpenseCalculator(
+                        equipment_data=equipment_data,
+                        days_between_travel=days_between_travel,
+                        miles_per_travel=miles_per_travel
+                    )
                     
                     # Calculate equipment expenses
                     annual_expenses = calculator.calculate_annual_expenses(start_date_str, end_date_str)
@@ -425,13 +451,15 @@ with tabs[6]:
                             st.metric("Total Annual Expenses", f"${grand_total['TotalAnnualExpense']:,.2f}")
                         
                         # Display recurring expenses in columns
-                        expense_col1, expense_col2, expense_col3 = st.columns(3)
+                        expense_col1, expense_col2, expense_col3, expense_col4 = st.columns(4)
                         with expense_col1:
                             st.metric("Service Costs", f"${grand_total['TotalServiceCost']:,.2f}")
                         with expense_col2:
                             st.metric("Accreditation Costs", f"${grand_total['TotalAccreditationCost']:,.2f}")
                         with expense_col3:
                             st.metric("Insurance Costs", f"${grand_total['TotalInsuranceCost']:,.2f}")
+                        with expense_col4:
+                            st.metric("Travel Costs", f"${grand_total['TotalTravelExpense']:,.2f}")
                         
                         # Display equipment summary table
                         st.subheader("Equipment Expense Summary")
@@ -439,7 +467,7 @@ with tabs[6]:
                         # Format the table for display
                         display_df = expenses_by_equipment.copy()
                         for col in ['PurchaseCost', 'AnnualDepreciation', 'ServiceCost', 
-                                  'AccreditationCost', 'InsuranceCost', 'TotalAnnualExpense']:
+                                  'AccreditationCost', 'InsuranceCost', 'TravelExpense', 'TotalAnnualExpense']:
                             if col in display_df.columns:
                                 display_df[col] = display_df[col].map('${:,.2f}'.format)
                         
@@ -452,7 +480,7 @@ with tabs[6]:
                         # Plot stacked bar chart of expenses by equipment type
                         pivot_df = annual_expenses.pivot_table(
                             index='Title',
-                            values=['ServiceCost', 'AccreditationCost', 'InsuranceCost'],
+                            values=['ServiceCost', 'AccreditationCost', 'InsuranceCost', 'TravelExpense'],
                             aggfunc='sum'
                         )
                         
@@ -493,6 +521,7 @@ with tabs[6]:
                                 'ServiceCost': 'sum',
                                 'AccreditationCost': 'sum',
                                 'InsuranceCost': 'sum',
+                                'TravelExpense': 'sum',
                                 'AnnualDepreciation': 'sum',
                                 'TotalAnnualExpense': 'sum'
                             })
@@ -530,13 +559,22 @@ with tabs[6]:
                                 label='Insurance Cost'
                             )
                             
-                            yearly_expenses['AnnualDepreciation'].plot(
+                            yearly_expenses['TravelExpense'].plot(
                                 kind='line', 
                                 marker='d',
                                 ax=ax3,
                                 linewidth=3,
                                 linestyle='-.',
                                 color='darkorange',
+                                label='Travel Expense'
+                            )
+                            
+                            yearly_expenses['AnnualDepreciation'].plot(
+                                kind='line', 
+                                marker='x',
+                                ax=ax3,
+                                linewidth=3,
+                                color='purple',
                                 label='Annual Depreciation'
                             )
                             
@@ -553,7 +591,7 @@ with tabs[6]:
                             ax3.legend(loc='best', frameon=True, fancybox=True, shadow=True)
                             
                             # Add data labels to the end points for better readability
-                            for column in ['ServiceCost', 'AccreditationCost', 'InsuranceCost', 'AnnualDepreciation']:
+                            for column in ['ServiceCost', 'AccreditationCost', 'InsuranceCost', 'TravelExpense', 'AnnualDepreciation']:
                                 last_year = yearly_expenses.index[-1]
                                 last_value = yearly_expenses.loc[last_year, column]
                                 ax3.annotate(f'${last_value:,.0f}', 
@@ -644,7 +682,8 @@ with tabs[7]:
                         exams_data=st.session_state.dataframes['Exams'],
                         revenue_data=st.session_state.dataframes['Revenue'],
                         personnel_data=st.session_state.dataframes['Personnel'],
-                        equipment_data=st.session_state.dataframes['Equipment']
+                        equipment_data=st.session_state.dataframes['Equipment'],
+                        start_date=start_date.strftime('%m/%d/%Y')
                     )
                     
                     # Calculate exam revenue for all selected sources
@@ -1281,6 +1320,28 @@ with tabs[10]:
     # Working days per year option
     work_days = st.number_input("Working Days Per Year", min_value=200, max_value=300, value=250, key="proforma_work_days")
     
+    # Travel parameters
+    st.subheader("Travel Parameters")
+    travel_col1, travel_col2 = st.columns(2)
+    with travel_col1:
+        days_between_travel = st.number_input(
+            "Days Between Travel",
+            min_value=1,
+            max_value=30,
+            value=5,
+            help="Number of days between travel events",
+            key="proforma_days_between_travel"
+        )
+    with travel_col2:
+        miles_per_travel = st.number_input(
+            "Miles Per Travel",
+            min_value=1,
+            max_value=100,
+            value=20,
+            help="Number of miles traveled in each travel event",
+            key="proforma_miles_per_travel"
+        )
+    
     # Generate proforma
     if st.button("Generate Comprehensive Proforma"):
         try:
@@ -1308,7 +1369,9 @@ with tabs[10]:
                         start_date=start_date_str,
                         end_date=end_date_str,
                         revenue_sources=selected_sources,
-                        work_days_per_year=work_days
+                        work_days_per_year=work_days,
+                        days_between_travel=days_between_travel,
+                        miles_per_travel=miles_per_travel
                     )
                     
                     # Get annual summary for visualizations

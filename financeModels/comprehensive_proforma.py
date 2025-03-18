@@ -12,7 +12,8 @@ from financeModels.other_expenses import OtherExpensesCalculator
 
 class ComprehensiveProformaCalculator:
     """
-    A class to calculate a comprehensive proforma that integrates all the existing financial models into one cohesive financial projection.
+    A class to calculate a comprehensive financial proforma integrating personnel,
+    exam revenue, equipment expenses, and other expenses/revenue.
     """
     
     def __init__(self, 
@@ -25,7 +26,10 @@ class ComprehensiveProformaCalculator:
                 exams_file: str = None,
                 revenue_file: str = None,
                 equipment_file: str = None,
-                other_file: str = None):
+                other_file: str = None,
+                days_between_travel: int = 5,
+                miles_per_travel: int = 20,
+                start_date: str = "01/01/2025"):
         """
         Initialize the calculator with necessary data.
 
@@ -34,38 +38,40 @@ class ComprehensiveProformaCalculator:
             exams_data: DataFrame containing exam data
             revenue_data: DataFrame containing revenue source data
             equipment_data: DataFrame containing equipment data
-            other_data: DataFrame containing other expenses/revenue data
+            other_data: DataFrame containing other expense/revenue data
             personnel_file: Path to a CSV file containing personnel data
             exams_file: Path to a CSV file containing exam data
             revenue_file: Path to a CSV file containing revenue source data
             equipment_file: Path to a CSV file containing equipment data
-            other_file: Path to a CSV file containing other expenses/revenue data
+            other_file: Path to a CSV file containing other expense/revenue data
+            days_between_travel: Number of days between travel events (default: 5)
+            miles_per_travel: Number of miles traveled in each travel event (default: 20)
+            start_date: Start date in format 'MM/DD/YYYY' used by exam calculator (default: "01/01/2025")
         """
-        # Initialize model calculators
-        self.personnel_calculator = PersonnelExpenseCalculator(
-            personnel_data=personnel_data,
-            personnel_file=personnel_file
-        )
+        # Save travel parameters
+        self.days_between_travel = days_between_travel
+        self.miles_per_travel = miles_per_travel
+        self.start_date = start_date
         
-        self.exam_calculator = ExamRevenueCalculator(
+        # Initialize financial model calculators
+        self.personnel_calculator = PersonnelExpenseCalculator()
+        self.exam_calculator = ExamRevenueCalculator(start_date=start_date)
+        self.equipment_calculator = EquipmentExpenseCalculator(days_between_travel=days_between_travel, miles_per_travel=miles_per_travel)
+        self.other_calculator = OtherExpensesCalculator()
+        
+        # Load data if provided
+        self.load_data(
+            personnel_data=personnel_data,
             exams_data=exams_data,
             revenue_data=revenue_data,
-            personnel_data=personnel_data,
             equipment_data=equipment_data,
+            other_data=other_data,
+            personnel_file=personnel_file,
             exams_file=exams_file,
             revenue_file=revenue_file,
-            personnel_file=personnel_file,
-            equipment_file=equipment_file
-        )
-        
-        self.equipment_calculator = EquipmentExpenseCalculator(
-            equipment_data=equipment_data,
-            equipment_file=equipment_file
-        )
-        
-        self.other_calculator = OtherExpensesCalculator(
-            other_data=other_data,
-            other_file=other_file
+            equipment_file=equipment_file,
+            other_file=other_file,
+            start_date=start_date
         )
     
     def load_data(self, 
@@ -78,63 +84,119 @@ class ComprehensiveProformaCalculator:
                 exams_file: str = None,
                 revenue_file: str = None,
                 equipment_file: str = None,
-                other_file: str = None):
+                other_file: str = None,
+                days_between_travel: int = None,
+                miles_per_travel: int = None,
+                start_date: str = None):
         """
-        Load data for all financial models.
+        Load data from DataFrames or CSV files.
         
         Args:
             personnel_data: DataFrame containing personnel data
             exams_data: DataFrame containing exam data
             revenue_data: DataFrame containing revenue source data
             equipment_data: DataFrame containing equipment data
-            other_data: DataFrame containing other expenses/revenue data
+            other_data: DataFrame containing other expense/revenue data
             personnel_file: Path to a CSV file containing personnel data
             exams_file: Path to a CSV file containing exam data
             revenue_file: Path to a CSV file containing revenue source data
             equipment_file: Path to a CSV file containing equipment data
-            other_file: Path to a CSV file containing other expenses/revenue data
+            other_file: Path to a CSV file containing other expense/revenue data
+            days_between_travel: Number of days between travel events
+            miles_per_travel: Number of miles traveled in each travel event
+            start_date: Start date in format 'MM/DD/YYYY' used by exam calculator
         """
-        # Load data into each calculator
-        if personnel_data is not None or personnel_file is not None:
-            self.personnel_calculator.load_data(personnel_data, personnel_file)
+        # Update travel parameters if provided
+        if days_between_travel is not None:
+            self.days_between_travel = days_between_travel
         
-        if all(x is not None for x in [exams_data, revenue_data, personnel_data, equipment_data]) or \
-           all(x is not None for x in [exams_file, revenue_file, personnel_file, equipment_file]):
+        if miles_per_travel is not None:
+            self.miles_per_travel = miles_per_travel
+        
+        # Load personnel data
+        if personnel_data is not None:
+            self.personnel_calculator.load_data(personnel_data=personnel_data)
+        elif personnel_file is not None:
+            self.personnel_calculator.load_data(personnel_file=personnel_file)
+            
+        # Load exam and revenue data
+        if exams_data is not None and revenue_data is not None:
             self.exam_calculator.load_data(
-                exams_data, revenue_data, personnel_data, equipment_data,
-                exams_file, revenue_file, personnel_file, equipment_file
+                exams_data=exams_data, 
+                revenue_data=revenue_data,
+                personnel_data=personnel_data if personnel_data is not None else None,
+                equipment_data=equipment_data if equipment_data is not None else None,
+                start_date=start_date
             )
-        
-        if equipment_data is not None or equipment_file is not None:
-            self.equipment_calculator.load_data(equipment_data, equipment_file)
-        
-        if other_data is not None or other_file is not None:
-            self.other_calculator.load_data(other_data, other_file)
-        
+        elif exams_file is not None and revenue_file is not None:
+            self.exam_calculator.load_data(
+                exams_file=exams_file, 
+                revenue_file=revenue_file,
+                personnel_file=personnel_file if personnel_file is not None else None,
+                equipment_file=equipment_file if equipment_file is not None else None,
+                start_date=start_date
+            )
+            
+        # Load equipment data
+        if equipment_data is not None:
+            self.equipment_calculator.load_data(
+                equipment_data=equipment_data,
+                days_between_travel=self.days_between_travel,
+                miles_per_travel=self.miles_per_travel
+            )
+        elif equipment_file is not None:
+            self.equipment_calculator.load_data(
+                equipment_file=equipment_file,
+                days_between_travel=self.days_between_travel,
+                miles_per_travel=self.miles_per_travel
+            )
+            
+        # Load other expense/revenue data
+        if other_data is not None:
+            self.other_calculator.load_data(other_data=other_data)
+        elif other_file is not None:
+            self.other_calculator.load_data(other_file=other_file)
+            
         return self
     
     def calculate_comprehensive_proforma(self, 
                                         start_date: str, 
                                         end_date: str, 
                                         revenue_sources: List[str] = None,
-                                        work_days_per_year: int = 250) -> Dict:
+                                        work_days_per_year: int = 250,
+                                        days_between_travel: int = None,
+                                        miles_per_travel: int = None) -> Dict:
         """
-        Calculate a comprehensive proforma integrating all revenue and expense sources.
+        Calculate a comprehensive financial proforma.
         
         Args:
             start_date: Start date in format 'MM/DD/YYYY'
             end_date: End date in format 'MM/DD/YYYY'
-            revenue_sources: List of revenue sources to include in exam calculations
-            work_days_per_year: Number of working days per year for exam volume calculations
+            revenue_sources: List of revenue source names to include
+            work_days_per_year: Number of working days per year
+            days_between_travel: Number of days between travel events
+            miles_per_travel: Number of miles traveled in each travel event
             
         Returns:
-            Dictionary with comprehensive proforma data and summaries
+            Dictionary containing all financial results
         """
-        # Convert dates to datetime for consistent processing
+        # Update travel parameters if provided
+        if days_between_travel is not None:
+            self.days_between_travel = days_between_travel
+            self.equipment_calculator.days_between_travel = days_between_travel
+        
+        if miles_per_travel is not None:
+            self.miles_per_travel = miles_per_travel
+            self.equipment_calculator.miles_per_travel = miles_per_travel
+            
+        # Also update start_date in the exam_calculator
+        self.exam_calculator.start_date = start_date
+            
+        # Convert date strings to datetime
         start_dt = pd.to_datetime(start_date, format='%m/%d/%Y')
         end_dt = pd.to_datetime(end_date, format='%m/%d/%Y')
         
-        # Get start and end years for multi-year calculations
+        # Extract years for exam revenue calculations
         start_year = start_dt.year
         end_year = end_dt.year
         
@@ -147,18 +209,18 @@ class ComprehensiveProformaCalculator:
         # Calculate equipment expenses
         equipment_results = self._calculate_equipment_expenses(start_date, end_date)
         
-        # Calculate other expenses/revenue
+        # Calculate other expenses and revenue
         other_results = self._calculate_other_expenses(start_date, end_date)
         
-        # Integrate all results into comprehensive proforma
-        comprehensive_results = self._integrate_results(
+        # Integrate all results
+        integrated_results = self._integrate_results(
             personnel_results, 
             exam_results, 
             equipment_results, 
             other_results
         )
         
-        return comprehensive_results
+        return integrated_results
     
     def _calculate_personnel_expenses(self, start_date: str, end_date: str) -> Dict:
         """Calculate personnel expenses for the proforma."""
@@ -762,31 +824,38 @@ def calculate_comprehensive_proforma(
     start_date: str,
     end_date: str,
     revenue_sources: List[str] = None,
-    work_days_per_year: int = 250
+    work_days_per_year: int = 250,
+    days_between_travel: int = 5,
+    miles_per_travel: int = 20
 ) -> Dict:
     """
-    Function to calculate a comprehensive proforma without instantiating the class.
+    Utility function to calculate a comprehensive proforma without having to manually instantiate the class.
     
     Args:
         personnel_data: DataFrame containing personnel data
         exams_data: DataFrame containing exam data
         revenue_data: DataFrame containing revenue source data
         equipment_data: DataFrame containing equipment data
-        other_data: DataFrame containing other expenses/revenue data
+        other_data: DataFrame containing other expense/revenue data
         start_date: Start date in format 'MM/DD/YYYY'
         end_date: End date in format 'MM/DD/YYYY'
-        revenue_sources: List of revenue sources to include in exam calculations
-        work_days_per_year: Number of working days per year for exam volume calculations
+        revenue_sources: List of revenue source names to include
+        work_days_per_year: Number of working days per year
+        days_between_travel: Number of days between travel events (default: 5)
+        miles_per_travel: Number of miles traveled in each travel event (default: 20)
         
     Returns:
-        Dictionary with comprehensive proforma data and summaries
+        Dictionary containing all financial results
     """
     calculator = ComprehensiveProformaCalculator(
         personnel_data=personnel_data,
         exams_data=exams_data,
         revenue_data=revenue_data,
         equipment_data=equipment_data,
-        other_data=other_data
+        other_data=other_data,
+        days_between_travel=days_between_travel,
+        miles_per_travel=miles_per_travel,
+        start_date=start_date
     )
     
     return calculator.calculate_comprehensive_proforma(
