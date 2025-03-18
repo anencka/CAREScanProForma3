@@ -1,0 +1,4 @@
+Title,PurchaseCost,Quantity,PurchaseDate,Lifespan,AnnualServiceCost,NecessaryStaff,ExamsOffered,MilageCost,SetupTime,TakedownTime,AnnualAccreditationCost,AnnualInsuranceCost
+Van,300000.0,1,06/01/2025,10,30000.0,VanDriver; NursePractitioner,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix,3,30,30,10000.0,10000.0
+MamoVan,1200000.0,1,06/01/2025,10,120000.0,MammographyTech; MammographyAssistant; MamoDriver,Mammography; ABUS,5,30,30,10000.0,60000.0
+CTTruck,2400000.0,1,06/01/2025,10,240000.0,CTTech; CTAssistant; CTDriver,Colongraphy; LungNodule,5,30,30,10000.0,120000.0
