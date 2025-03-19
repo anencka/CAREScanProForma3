@@ -15,6 +15,7 @@ This document tracks the progress of refactoring the CAREScan ProForma applicati
 5. ✅ Refactored the Revenue Tab into ui/revenue_tab.py
 6. ✅ Refactored the Personnel Tab into ui/personnel_tab.py
 7. ✅ Refactored the Exams Tab into ui/exams_tab.py
+8. ✅ Refactored the Other Expenses Tab into ui/other_expenses_tab.py
 
 ### In Progress
 
@@ -22,10 +23,10 @@ None at the moment.
 
 ### To Do
 
-1. ⬜ Other Expenses Tab (ui/other_expenses_tab.py)
-2. ⬜ Summary Plots Tab (ui/plots_tab.py)
-3. ⬜ Personnel Expense Plots Tab (integrate with Personnel Tab) [COMPLETED as part of Personnel Tab]
-4. ⬜ Exam Revenue Analysis Tab (integrate with Exams Tab) [COMPLETED as part of Exams Tab]
+1. ⬜ Summary Plots Tab (ui/plots_tab.py)
+2. ⬜ Personnel Expense Plots Tab (integrate with Personnel Tab) [COMPLETED as part of Personnel Tab]
+3. ⬜ Exam Revenue Analysis Tab (integrate with Exams Tab) [COMPLETED as part of Exams Tab]
+4. ⬜ Equipment Expense Plots Tab (integrate with Equipment Tab) [COMPLETED as part of Equipment Tab]
 5. ⬜ Comprehensive ProForma Tab (ui/comprehensive_tab.py)
 6. ⬜ Update app.py to use all refactored modules
 7. ⬜ Test the complete refactored application
@@ -111,6 +112,31 @@ The Exams Tab has been fully refactored, combining both the Exams data editor an
 
 4. Error handling for calculations and visualizations
 
+### Other Expenses Tab
+
+The Other Expenses Tab has been fully refactored, combining both the data editing and visualization functionality. The refactored version includes:
+
+1. Data editing capabilities with enhanced column configuration:
+   - Improved data entry with appropriate data types
+   - Checkbox for distinguishing between expenses and revenue items
+   - Proper date formatting and validation
+   - Helpful tooltips for each field
+
+2. Other expenses analysis with:
+   - Customizable date range selection
+   - Integration with the OtherExpensesCalculator
+   - Summary metrics (total revenue, expenses, and net total)
+
+3. Comprehensive visualization features:
+   - Expenses and revenue by category (bar chart)
+   - Detailed breakdown of expenses and revenue items
+   - Year-by-year analysis of expenses and revenue
+   - Timeline view showing expenses, revenue, and net values over time
+   - Raw data display with formatting
+   - Interactive tabs for different visualization types
+
+4. Error handling for calculations and visualizations
+
 To test the refactored tabs:
 
 1. Run the application using:
@@ -118,21 +144,21 @@ To test the refactored tabs:
    streamlit run refactored_app.py
    ```
 
-2. Navigate to the "Revenue", "Equipment", "Personnel", and "Exams" tabs to verify functionality
+2. Navigate to the "Revenue", "Equipment", "Personnel", "Exams", and "Other Expenses" tabs to verify functionality
 
-## Next Steps: Refactoring the Other Expenses Tab
+## Next Steps: Refactoring the Summary Plots Tab
 
-The next step is to refactor the Other Expenses Tab. Follow these steps:
+The next step is to refactor the Summary Plots Tab. Follow these steps:
 
-1. Create ui/other_expenses_tab.py
+1. Create ui/plots_tab.py
 
-2. Extract the other expenses-related code from app.py
+2. Extract the summary plots-related code from app.py
 
-3. Implement render_other_expenses_tab() following the same pattern as the other refactored tabs
+3. Implement render_plots_tab() following the same pattern as the other refactored tabs
 
-4. Update ui/__init__.py to include the other expenses tab
+4. Update ui/__init__.py to include the summary plots tab
 
-5. Test the refactored other expenses tab
+5. Test the refactored summary plots tab
 
 6. Update REFACTORING_PROGRESS.md to reflect the completion
 
