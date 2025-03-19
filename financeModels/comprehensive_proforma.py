@@ -886,3 +886,36 @@ def calculate_comprehensive_proforma(
         work_days_per_year=work_days_per_year,
         population_growth_rates=population_growth_rates
     ) 
+
+
+def get_exam_calculator_from_proforma_params(
+    personnel_data: pd.DataFrame,
+    exams_data: pd.DataFrame,
+    revenue_data: pd.DataFrame,
+    equipment_data: pd.DataFrame,
+    start_date: str,
+    population_growth_rates: List[float] = None
+) -> ExamRevenueCalculator:
+    """
+    Creates an ExamRevenueCalculator with the same parameters as used in the comprehensive proforma.
+    This ensures consistency between the comprehensive proforma and volume limiting factors analyses.
+    
+    Args:
+        personnel_data: DataFrame containing personnel data
+        exams_data: DataFrame containing exam data
+        revenue_data: DataFrame containing revenue source data
+        equipment_data: DataFrame containing equipment data
+        start_date: Start date in format 'MM/DD/YYYY'
+        population_growth_rates: List of growth rates for PctPopulationReached by year
+        
+    Returns:
+        An initialized ExamRevenueCalculator
+    """
+    return ExamRevenueCalculator(
+        personnel_data=personnel_data,
+        exams_data=exams_data,
+        revenue_data=revenue_data,
+        equipment_data=equipment_data,
+        start_date=start_date,
+        population_growth_rates=population_growth_rates
+    ) 
