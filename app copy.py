@@ -1603,46 +1603,16 @@ with tabs[10]:
                         else:
                             st.warning("No breakeven year identified in the projection period.")
                         
-                        # Add raw CSV data section
-                        st.subheader("Raw Data from CSV Files")
-                        st.write("This section displays all of the raw data from the input CSV files.")
-                        
-                        # Create expandable sections for each CSV file
-                        for name, filepath in CSV_FILES.items():
-                            # Create an expander for each CSV file
-                            with st.expander(f"{name} Data"):
-                                if name in st.session_state.dataframes and not st.session_state.dataframes[name].empty:
-                                    # Format financial columns for better display if needed
-                                    display_df = st.session_state.dataframes[name].copy()
-                                    
-                                    # Display the data
-                                    st.dataframe(display_df, use_container_width=True, height=max(35*len(display_df)+38, 400))
-                                    
-                                    # Add download option for this specific table
-                                    csv = display_df.to_csv(index=False)
-                                    st.download_button(
-                                        label=f"Download {name} Data as CSV",
-                                        data=csv,
-                                        file_name=f"{name.lower()}_data.csv",
-                                        mime="text/csv",
-                                    )
-                                else:
-                                    st.warning(f"No data available for {name}")
-                        
                         # Display annual summary table
                         st.subheader("Annual Financial Summary")
                         
                         # Format the summary for better display
-                        formatted_summary = proforma_results['annual_summary'].copy()
+                        formatted_summary = annual_summary.copy()
                         for col in formatted_summary.columns:
                             if col != 'Year' and formatted_summary[col].dtype in [np.float64, np.int64]:
                                 formatted_summary[col] = formatted_summary[col].map('${:,.2f}'.format)
                         
-                        # Display the formatted summary
                         st.dataframe(formatted_summary)
-                        
-                        # Create visualization of revenue vs expenses
-                        st.subheader("Revenue vs Expenses")
                         
                         # Visualizations
                         st.subheader("Financial Visualizations")
@@ -2415,75 +2385,6 @@ with tabs[12]:  # Last tab (index 12) is Comprehensive Report
                     else:
                         st.warning("No breakeven year identified in the projection period.")
                     
-                    # Add raw CSV data section
-                    st.subheader("Raw Data from CSV Files")
-                    st.write("This section displays all of the raw data from the input CSV files.")
-                    
-                    # Create expandable sections for each CSV file
-                    for name, filepath in CSV_FILES.items():
-                        # Create an expander for each CSV file
-                        with st.expander(f"{name} Data"):
-                            if name in st.session_state.dataframes and not st.session_state.dataframes[name].empty:
-                                # Format financial columns for better display if needed
-                                display_df = st.session_state.dataframes[name].copy()
-                                
-                                # Display the data
-                                st.dataframe(display_df, use_container_width=True, height=max(35*len(display_df)+38, 400))
-                                
-                                # Add download option for this specific table
-                                csv = display_df.to_csv(index=False)
-                                st.download_button(
-                                    label=f"Download {name} Data as CSV",
-                                    data=csv,
-                                    file_name=f"{name.lower()}_data.csv",
-                                    mime="text/csv",
-                                )
-                            else:
-                                st.warning(f"No data available for {name}")
-                    # Add Personnel Analysis Section
-                    st.subheader("Personnel Analysis")
-                    st.write("This section provides a detailed analysis of personnel expenses and utilization.")
-
-                    # Create an expander for Personnel Analysis
-                    with st.expander("Personnel Expense Analysis", expanded=True):
-                        if "Personnel" in st.session_state.dataframes and not st.session_state.dataframes["Personnel"].empty:
-                            try:
-                                # Calculate personnel expenses using the same date range as the comprehensive proforma
-                                personnel_data = st.session_state.dataframes["Personnel"]
-                                start_date_str = start_date.strftime("%m/%d/%Y")
-                                end_date_str = end_date.strftime("%m/%d/%Y")
-                                
-                                personnel_results = calculate_personnel_expenses(
-                                    personnel_data=personnel_data,
-                                    start_date=start_date_str,
-                                    end_date=end_date_str
-                                )
-                                
-                                # Display total personnel expenses by year
-                                st.write("#### Total Personnel Expenses by Year")
-                                annual_df = personnel_results["annual"]
-                                
-                                fig1, ax1 = plt.subplots(figsize=(12, 6))
-                                annual_totals = annual_df.groupby("Year")["Total_Expense"].sum()
-                                annual_totals.plot(kind="bar", color="skyblue", ax=ax1)
-                                ax1.set_title("Total Personnel Expenses by Year")
-                                ax1.set_xlabel("Year")
-                                ax1.set_ylabel("Total Expense ($)")
-                                ax1.grid(axis="y", linestyle="--", alpha=0.7)
-                                ax1.tick_params(axis="x", rotation=0)
-                                
-                                # Format y-axis with dollar signs
-                                fmt = "${x:,.0f}"
-                                tick = mticker.StrMethodFormatter(fmt)
-                                ax1.yaxis.set_major_formatter(tick)
-                                
-                                st.pyplot(fig1)
-                            except Exception as e:
-                                st.error(f"Error generating personnel analysis: {str(e)}")
-                        else:
-                            st.warning("Personnel data is not available. Please upload Personnel.csv file.")
-
-                    
                     # Display annual summary table
                     st.subheader("Annual Financial Summary")
                     
@@ -2492,7 +2393,7 @@ with tabs[12]:  # Last tab (index 12) is Comprehensive Report
                     for col in formatted_summary.columns:
                         if col != 'Year' and formatted_summary[col].dtype in [np.float64, np.int64]:
                             formatted_summary[col] = formatted_summary[col].map('${:,.2f}'.format)
-                        
+                    
                     st.dataframe(formatted_summary)
                     
                     # Create visualization of revenue vs expenses
@@ -2594,211 +2495,6 @@ with tabs[12]:  # Last tab (index 12) is Comprehensive Report
                     **Disclaimer**: This report is generated based on the data and parameters provided in the input files and parameters selected.
                     The financial projections and analysis should be used for planning purposes only and validated by financial experts.
                     """)
-                    
-                    # Add Personnel Analysis Section
-                    st.subheader("Personnel Analysis")
-                    st.write("This section provides a detailed analysis of personnel expenses and utilization.")
-                    
-                    # Create an expander for Personnel Analysis
-                    with st.expander("Personnel Expense Analysis", expanded=True):
-                        if 'Personnel' in st.session_state.dataframes and not st.session_state.dataframes['Personnel'].empty:
-                            try:
-                                # Calculate personnel expenses using the same date range as the comprehensive proforma
-                                personnel_data = st.session_state.dataframes['Personnel']
-                                start_date_str = start_date.strftime("%m/%d/%Y")
-                                end_date_str = end_date.strftime("%m/%d/%Y")
-                                
-                                personnel_results = calculate_personnel_expenses(
-                                    personnel_data=personnel_data,
-                                    start_date=start_date_str,
-                                    end_date=end_date_str
-                                )
-                                
-                                # Display total personnel expenses by year
-                                st.write("#### Total Personnel Expenses by Year")
-                                annual_df = personnel_results['annual']
-                                
-                                fig1, ax1 = plt.subplots(figsize=(12, 6))
-                                annual_totals = annual_df.groupby('Year')['Total_Expense'].sum()
-                                annual_totals.plot(kind='bar', color='skyblue', ax=ax1)
-                                ax1.set_title('Total Personnel Expenses by Year')
-                                ax1.set_xlabel('Year')
-                                ax1.set_ylabel('Total Expense ($)')
-                                ax1.grid(axis='y', linestyle='--', alpha=0.7)
-                                ax1.tick_params(axis='x', rotation=0)
-                                
-                                # Format y-axis with dollar signs
-                                fmt = '${x:,.0f}'
-                                tick = mticker.StrMethodFormatter(fmt)
-                                ax1.yaxis.set_major_formatter(tick)
-                                
-                                st.pyplot(fig1)
-                                
-                                # Display summary of annual expenses
-                                st.write("Personnel Expenses by Year")
-                                formatted_annual = annual_totals.reset_index()
-                                formatted_annual['Total_Expense'] = formatted_annual['Total_Expense'].map('${:,.2f}'.format)
-                                formatted_annual.columns = ['Year', 'Total Expense']
-                                st.dataframe(formatted_annual, use_container_width=True)
-                                
-                                # Display expenses by institution and type
-                                st.write("#### Personnel Expenses by Institution and Type")
-                                category_df = personnel_results['by_category']
-                                
-                                fig2, ax2 = plt.subplots(figsize=(14, 7))
-                                pivot_df = category_df.pivot_table(
-                                    index='Institution', 
-                                    columns='Type', 
-                                    values='Total_Expense',
-                                    aggfunc='sum',
-                                    fill_value=0
-                                )
-                                pivot_df.plot(kind='bar', stacked=True, colormap='viridis', ax=ax2)
-                                ax2.set_title('Personnel Expenses by Institution and Type')
-                                ax2.set_xlabel('Institution')
-                                ax2.set_ylabel('Total Expense ($)')
-                                ax2.grid(axis='y', linestyle='--', alpha=0.7)
-                                ax2.tick_params(axis='x', rotation=45)
-                                ax2.legend(title='Staff Type')
-                                
-                                # Format y-axis with dollar signs
-                                ax2.yaxis.set_major_formatter(tick)
-                                
-                                st.pyplot(fig2)
-                                
-                                # Display detailed expenses by category
-                                st.write("Detailed Personnel Expenses")
-                                formatted_category = category_df.copy()
-                                for col in ['Base_Expense', 'Fringe_Amount', 'Total_Expense']:
-                                    formatted_category[col] = formatted_category[col].map('${:,.2f}'.format)
-                                st.dataframe(formatted_category, use_container_width=True)
-                                
-                                # Display FTE count over time
-                                st.write("#### FTE Count Over Time by Staff Type")
-                                headcount_df = personnel_results['headcount']
-                                
-                                # Create a date column for better plotting
-                                headcount_df['Date'] = pd.to_datetime(
-                                    headcount_df['Year'].astype(str) + '-' + 
-                                    headcount_df['Month'].astype(str) + '-01'
-                                )
-                                
-                                fig3, ax3 = plt.subplots(figsize=(14, 6))
-                                headcount_pivoted = headcount_df.pivot_table(
-                                    index='Date', 
-                                    columns='Type', 
-                                    values='FTE_Count',
-                                    aggfunc='sum',
-                                    fill_value=0
-                                )
-                                headcount_pivoted.plot(kind='area', stacked=True, alpha=0.7, colormap='tab10', ax=ax3)
-                                ax3.set_title('FTE Count Over Time by Staff Type')
-                                ax3.set_xlabel('Date')
-                                ax3.set_ylabel('FTE Count')
-                                ax3.grid(linestyle='--', alpha=0.7)
-                                ax3.legend(title='Staff Type')
-                                st.pyplot(fig3)
-                                
-                                # Display headcount data
-                                st.write("Monthly Headcount Data")
-                                headcount_display = headcount_df.pivot_table(
-                                    index=['Year', 'Month'],
-                                    columns='Type',
-                                    values='FTE_Count',
-                                    aggfunc='sum',
-                                    fill_value=0
-                                ).reset_index()
-                                st.dataframe(headcount_display, use_container_width=True)
-                                
-                                # Display grand total
-                                st.write("#### Grand Total Personnel Expenses")
-                                grand_total = personnel_results['grand_total']
-                                
-                                # Format with commas for thousands
-                                formatted_grand_total = {
-                                    'Base Expense': f"${grand_total['Base_Expense']:,.2f}",
-                                    'Fringe Amount': f"${grand_total['Fringe_Amount']:,.2f}",
-                                    'Total Expense': f"${grand_total['Total_Expense']:,.2f}"
-                                }
-                                
-                                # Display as a table
-                                st.table(pd.DataFrame([formatted_grand_total]))
-                                
-                                # Personnel utilization from proforma
-                                if 'personnel_utilization' in proforma_data['results'] and not proforma_data['results']['personnel_utilization'].empty:
-                                    st.write("#### Personnel Utilization Analysis")
-                                    st.write("This shows the percentage utilization of each staff type across all revenue sources.")
-                                    
-                                    util_df = proforma_data['results']['personnel_utilization']
-                                    
-                                    # Plot utilization percentages
-                                    fig4, ax4 = plt.subplots(figsize=(10, 6))
-                                    
-                                    # Create bars
-                                    bar_positions = np.arange(len(util_df))
-                                    bars = ax4.bar(bar_positions, util_df['Utilization %'], 
-                                                 color=['red' if pct > 100 else 'green' for pct in util_df['Utilization %']])
-                                    
-                                    # Add data labels
-                                    for i, (_, row) in enumerate(util_df.iterrows()):
-                                        ax4.text(i, row['Utilization %'] + 1, f"{row['Utilization %']:.1f}%", 
-                                               ha='center', va='bottom', fontsize=9)
-                                    
-                                    # Add a horizontal line at 100%
-                                    ax4.axhline(y=100, linestyle='--', color='r', alpha=0.7)
-                                    
-                                    # Set title and labels
-                                    ax4.set_title(f"Personnel Utilization")
-                                    ax4.set_ylabel('Utilization %')
-                                    ax4.set_xticks(bar_positions)
-                                    ax4.set_xticklabels(util_df['Staff Type'], rotation=45, ha='right')
-                                    
-                                    # Add grid and adjust layout
-                                    ax4.grid(axis='y', linestyle='--', alpha=0.7)
-                                    ax4.set_ylim(0, max(110, util_df['Utilization %'].max() * 1.1))
-                                    plt.tight_layout()
-                                    
-                                    # Display the plot
-                                    st.pyplot(fig4)
-                                    
-                                    # Display the data table
-                                    display_df = util_df.copy()
-                                    display_df['Hours Used'] = display_df['Hours Used'].map('{:,.1f}'.format)
-                                    display_df['Total Capacity (Hours)'] = display_df['Total Capacity (Hours)'].map('{:,.1f}'.format)
-                                    display_df['Utilization %'] = display_df['Utilization %'].map('{:.1f}%'.format)
-                                    
-                                    st.dataframe(display_df, use_container_width=True)
-                                    
-                                    # Highlight potential staffing issues
-                                    over_utilized = util_df[util_df['Utilization %'] > 100]
-                                    if not over_utilized.empty:
-                                        st.warning("### Staffing Concerns")
-                                        st.write("The following staff types are over-utilized and may require additional staffing:")
-                                        for _, row in over_utilized.iterrows():
-                                            st.write(f"- **{row['Staff Type']}**: {row['Utilization %']:.1f}% utilization")
-                                        
-                                        st.write("Recommendations:")
-                                        st.write("1. Consider hiring additional staff for these roles")
-                                        st.write("2. Evaluate workflow efficiency for these roles")
-                                        st.write("3. Reassign tasks to other, under-utilized staff types if possible")
-                                    
-                                    under_utilized = util_df[util_df['Utilization %'] < 75]
-                                    if not under_utilized.empty:
-                                        st.info("### Efficiency Opportunities")
-                                        st.write("The following staff types are under-utilized and may present efficiency opportunities:")
-                                        for _, row in under_utilized.iterrows():
-                                            st.write(f"- **{row['Staff Type']}**: {row['Utilization %']:.1f}% utilization")
-                                        
-                                        st.write("Recommendations:")
-                                        st.write("1. Consider reducing staff levels for these roles")
-                                        st.write("2. Cross-train these staff for other responsibilities")
-                                        st.write("3. Increase exam offerings that utilize these staff types")
-                            except Exception as e:
-                                st.error(f"Error generating personnel analysis: {str(e)}")
-                        else:
-                            st.warning("Personnel data is not available. Please upload Personnel.csv file.")
-                    
-                    # Display annual summary table
             except Exception as e:
                 import traceback
                 st.error(f"Error generating comprehensive report: {str(e)}")

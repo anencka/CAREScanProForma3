@@ -1633,7 +1633,7 @@ with tabs[10]:
                         st.subheader("Annual Financial Summary")
                         
                         # Format the summary for better display
-                        formatted_summary = proforma_results['annual_summary'].copy()
+                        formatted_summary = proforma_data['results']['annual_summary'].copy()
                         for col in formatted_summary.columns:
                             if col != 'Year' and formatted_summary[col].dtype in [np.float64, np.int64]:
                                 formatted_summary[col] = formatted_summary[col].map('${:,.2f}'.format)
@@ -2440,49 +2440,6 @@ with tabs[12]:  # Last tab (index 12) is Comprehensive Report
                                 )
                             else:
                                 st.warning(f"No data available for {name}")
-                    # Add Personnel Analysis Section
-                    st.subheader("Personnel Analysis")
-                    st.write("This section provides a detailed analysis of personnel expenses and utilization.")
-
-                    # Create an expander for Personnel Analysis
-                    with st.expander("Personnel Expense Analysis", expanded=True):
-                        if "Personnel" in st.session_state.dataframes and not st.session_state.dataframes["Personnel"].empty:
-                            try:
-                                # Calculate personnel expenses using the same date range as the comprehensive proforma
-                                personnel_data = st.session_state.dataframes["Personnel"]
-                                start_date_str = start_date.strftime("%m/%d/%Y")
-                                end_date_str = end_date.strftime("%m/%d/%Y")
-                                
-                                personnel_results = calculate_personnel_expenses(
-                                    personnel_data=personnel_data,
-                                    start_date=start_date_str,
-                                    end_date=end_date_str
-                                )
-                                
-                                # Display total personnel expenses by year
-                                st.write("#### Total Personnel Expenses by Year")
-                                annual_df = personnel_results["annual"]
-                                
-                                fig1, ax1 = plt.subplots(figsize=(12, 6))
-                                annual_totals = annual_df.groupby("Year")["Total_Expense"].sum()
-                                annual_totals.plot(kind="bar", color="skyblue", ax=ax1)
-                                ax1.set_title("Total Personnel Expenses by Year")
-                                ax1.set_xlabel("Year")
-                                ax1.set_ylabel("Total Expense ($)")
-                                ax1.grid(axis="y", linestyle="--", alpha=0.7)
-                                ax1.tick_params(axis="x", rotation=0)
-                                
-                                # Format y-axis with dollar signs
-                                fmt = "${x:,.0f}"
-                                tick = mticker.StrMethodFormatter(fmt)
-                                ax1.yaxis.set_major_formatter(tick)
-                                
-                                st.pyplot(fig1)
-                            except Exception as e:
-                                st.error(f"Error generating personnel analysis: {str(e)}")
-                        else:
-                            st.warning("Personnel data is not available. Please upload Personnel.csv file.")
-
                     
                     # Display annual summary table
                     st.subheader("Annual Financial Summary")
