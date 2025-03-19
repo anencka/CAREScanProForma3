@@ -246,13 +246,27 @@ def create_revenue_charts(revenue_df: pd.DataFrame) -> Tuple[plt.Figure, plt.Fig
     Returns:
         Tuple of Matplotlib figures (bar chart, pie chart)
     """
+    # Check if required columns exist
+    required_columns = ['Title', 'Amount']
+    missing_columns = [col for col in required_columns if col not in revenue_df.columns]
+    
+    if missing_columns:
+        # Create empty figures if required columns are missing
+        fig1, ax1 = setup_plot_style()
+        ax1.set_title(f"Missing required columns: {', '.join(missing_columns)}")
+        fig2, ax2 = setup_plot_style()
+        ax2.set_title(f"Missing required columns: {', '.join(missing_columns)}")
+        return fig1, fig2
+    
     # Filter out rows with missing or zero amounts
     valid_revenue = revenue_df[(revenue_df['Amount'].notna()) & (revenue_df['Amount'] > 0)].copy()
     
     if valid_revenue.empty:
         # Create empty figures if no valid data
         fig1, ax1 = setup_plot_style()
+        ax1.set_title("No valid revenue data available")
         fig2, ax2 = setup_plot_style()
+        ax2.set_title("No valid revenue data available")
         return fig1, fig2
     
     # Sort by amount descending

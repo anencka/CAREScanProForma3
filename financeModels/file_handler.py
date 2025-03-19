@@ -11,6 +11,7 @@ import pandas as pd
 import json
 import os
 from typing import Dict, List, Optional, Union
+from datetime import datetime, date
 
 def process_value_for_display(value):
     """Format values for display in the data editor."""
@@ -21,10 +22,16 @@ def process_value_for_display(value):
     return value
 
 def process_value_for_save(value):
-    """Format values for saving to CSV."""
+    """Format values for saving to CSV and JSON."""
     if isinstance(value, (list, tuple)):
         # Convert lists back to semicolon-separated strings
         return '; '.join(str(item) for item in value) + ';'
+    elif pd.api.types.is_datetime64_any_dtype(pd.Series([value])):
+        # Handle pandas Timestamp objects
+        try:
+            return pd.to_datetime(value).strftime('%m/%d/%Y')
+        except:
+            return str(value)
     return value
 
 def convert_underscore_numbers(value):
@@ -89,6 +96,7 @@ def save_csv(df: pd.DataFrame, filepath: str) -> bool:
 def load_json(filepath: str) -> Dict[str, pd.DataFrame]:
     """
     Load a JSON file containing multiple datasets.
+    If the JSON file is corrupted, log an error and return an empty dict.
     
     Args:
         filepath: Path to the JSON file
@@ -123,11 +131,23 @@ def load_json(filepath: str) -> Dict[str, pd.DataFrame]:
                 
                 data_dict[key] = df
             except Exception as e:
-                raise ValueError(f"Error processing {key}: {str(e)}")
+                print(f"Error processing {key} from JSON: {str(e)}")
+                # Continue with other keys rather than failing completely
         
         return data_dict
     except Exception as e:
-        raise IOError(f"Error importing from JSON: {str(e)}")
+        # If JSON is corrupted, make a backup and return empty dict
+        import time
+        backup_path = f"{filepath}.bak.{int(time.time())}"
+        try:
+            import shutil
+            shutil.copy2(filepath, backup_path)
+            print(f"Created backup of corrupted JSON file: {backup_path}")
+        except Exception as backup_error:
+            print(f"Failed to create backup: {str(backup_error)}")
+        
+        print(f"Error importing from JSON: {str(e)}")
+        return {}
 
 def save_json(data_dict: Dict[str, pd.DataFrame], filepath: str) -> bool:
     """
@@ -141,6 +161,13 @@ def save_json(data_dict: Dict[str, pd.DataFrame], filepath: str) -> bool:
         True if successful, raises exception otherwise
     """
     try:
+        # Define a custom JSON encoder to handle datetime objects
+        class DateTimeEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, (pd.Timestamp, pd.DatetimeIndex, datetime, date)):
+                    return obj.strftime('%m/%d/%Y')
+                return json.JSONEncoder.default(self, obj)
+        
         # Convert DataFrames to serializable format
         json_dict = {}
         for key, df in data_dict.items():
@@ -159,7 +186,7 @@ def save_json(data_dict: Dict[str, pd.DataFrame], filepath: str) -> bool:
             json_dict[key] = export_df.to_dict(orient='records')
         
         with open(filepath, 'w') as f:
-            json.dump(json_dict, f, indent=2)
+            json.dump(json_dict, f, indent=2, cls=DateTimeEncoder)
         
         return True
     except Exception as e:

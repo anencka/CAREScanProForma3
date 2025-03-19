@@ -20,7 +20,7 @@ from ui.equipment_tab import render_equipment_tab
 from ui.personnel_tab import render_personnel_tab
 from ui.exams_tab import render_exams_tab
 from ui.other_expenses_tab import render_other_expenses_tab
-# from ui.plots_tab import render_plots_tab
+from ui.plots_tab import render_plots_tab
 # from ui.comprehensive_tab import render_comprehensive_tab
 
 # Set page configuration
@@ -98,9 +98,7 @@ with tabs[4]:
 
 # Summary Plots tab
 with tabs[5]:
-    st.header("Summary Plots")
-    st.warning("Summary Plots tab module is not yet implemented in this refactored version.")
-    # render_plots_tab(st)
+    render_plots_tab(st)
 
 # Equipment Expense Plots tab
 with tabs[6]:

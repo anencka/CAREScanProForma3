@@ -61,11 +61,17 @@ class AppController:
         """Load all data from JSON file into session state."""
         try:
             data_dict = load_json(JSON_FILE)
+            
+            # If we got an empty dictionary, it means JSON loading failed
+            if not data_dict:
+                st.warning("Could not load data from JSON file. Falling back to CSV files.")
+                return AppController.load_all_data()
+            
             st.session_state.dataframes = data_dict
             st.session_state.loaded_from = 'json'
             return data_dict
         except Exception as e:
-            st.error(f"Error loading from JSON: {e}")
+            st.warning(f"Error loading from JSON: {str(e)}. Falling back to CSV files.")
             # Fall back to CSV loading
             return AppController.load_all_data()
     

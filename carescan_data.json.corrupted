@@ -1,0 +1,107 @@
+{
+  "Revenue": [
+    {
+      "Title": "FQHC",
+      "Description": "Partner with FQHCs for advanced imaging and screening",
+      "PctCMS": 0.9,
+      "NonCMSMultiplier": 0.0,
+      "RevenueToPartner": 0.0,
+      "TargetPopulation": 95000,
+      "PctPopulationReached": 0.2,
+      "PopulationMinAge": 18,
+      "PopulationMaxAge": 100,
+      "PctFemale": 0.5,
+      "PctFullModel": 0.33,
+      "FlatPatientFee": 0,
+      "OfferedExams": "Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS; DiagnosticCT"
+    },
+    {
+      "Title": "Employer",
+      "Description": "Partner with employers for advanced imaging and screening",
+      "PctCMS": 0.0,
+      "NonCMSMultiplier": 0.0,
+      "RevenueToPartner": 0.0,
+      "TargetPopulation": 20000,
+      "PctPopulationReached": 0.5,
+      "PopulationMinAge": 18,
+      "PopulationMaxAge": 65,
+      "PctFemale": 0.5,
+      "PctFullModel": 0.33,
+      "FlatPatientFee": 250,
+      "OfferedExams": "Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS"
+    },
+    {
+      "Title": "HealthSystem",
+      "Description": "Partner with health systems for advanced imaging and screening",
+      "PctCMS": 0.5,
+      "NonCMSMultiplier": 2.0,
+      "RevenueToPartner": 0.05,
+      "TargetPopulation": 1200000,
+      "PctPopulationReached": 0.01,
+      "PopulationMinAge": 18,
+      "PopulationMaxAge": 100,
+      "PctFemale": 0.5,
+      "PctFullModel": 0.34,
+      "FlatPatientFee": 0,
+      "OfferedExams": "Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS; DiagnosticCT"
+    }
+  ],
+  "Equipment": [
+    {
+      "Title": "Van",
+      "PurchaseCost": 300000,
+      "Quantity": 1,
+      "PurchaseDate": "06/01/2025",
+      "ConstructionTime": 120,
+      "Lifespan": 10,
+      "AnnualServiceCost": 30000,
+      "NecessaryStaff": "VanDriver; NursePractitioner",
+      "ExamsOffered": "Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix",
+      "MilageCost": 3,
+      "SetupTime": 90,
+      "TakedownTime": 30,
+      "AnnualAccreditationCost": 10000,
+      "AnnualInsuranceCost": 10000
+    },
+    {
+      "Title": "MamoVan",
+      "PurchaseCost": 1200000,
+      "Quantity": 1,
+      "PurchaseDate": "06/01/2025",
+      "ConstructionTime": 180,
+      "Lifespan": 10,
+      "AnnualServiceCost": 120000,
+      "NecessaryStaff": "MammographyTech; MammographyAssistant; MamoDriver",
+      "ExamsOffered": "Mammography; ABUS",
+      "MilageCost": 5,
+      "SetupTime": 150,
+      "TakedownTime": 90,
+      "AnnualAccreditationCost": 10000,
+      "AnnualInsuranceCost": 60000
+    },
+    {
+      "Title": "CTTruck",
+      "PurchaseCost": 3200000,
+      "Quantity": 1,
+      "PurchaseDate": "06/01/2025",
+      "ConstructionTime": 270,
+      "Lifespan": 10,
+      "AnnualServiceCost": 320000,
+      "NecessaryStaff": "CTTech; CTAssistant; CTDriver",
+      "ExamsOffered": "Colongraphy; LungNodule",
+      "MilageCost": 5,
+      "SetupTime": 240,
+      "TakedownTime": 180,
+      "AnnualAccreditationCost": 10000,
+      "AnnualInsuranceCost": 120000
+    }
+  ],
+  "Personnel": [
+    {
+      "Title": "ProjectDirector",
+      "Type": "Staff",
+      "Institution": "MCW",
+      "Salary": 280000,
+      "Effort": 0.15,
+      "Fringe": 0.25,
+      "StartDate": 

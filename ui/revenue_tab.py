@@ -79,7 +79,15 @@ def render_revenue_tab(st_obj):
         col1, col2 = st_obj.columns([1, 5])
         with col1:
             if st_obj.button("Save Revenue Data"):
-                save_result = AppController.save_dataframe("Revenue", edited_df)
+                # Handle any date columns to prevent JSON serialization errors
+                save_df = edited_df.copy()
+                
+                # Convert any datetime columns to string format
+                for col in save_df.columns:
+                    if pd.api.types.is_datetime64_any_dtype(save_df[col]):
+                        save_df[col] = save_df[col].dt.strftime('%m/%d/%Y')
+                
+                save_result = AppController.save_dataframe("Revenue", save_df)
                 if save_result:
                     st_obj.success("Revenue data saved successfully!")
                     revenue_df = edited_df
@@ -101,6 +109,24 @@ def render_revenue_chart(st_obj, revenue_df):
         st_obj: Streamlit instance
         revenue_df: Revenue data DataFrame
     """
+    # Check if required columns exist
+    required_columns = ['Title', 'Amount']
+    missing_columns = [col for col in required_columns if col not in revenue_df.columns]
+    
+    if missing_columns:
+        st_obj.warning(f"Cannot visualize revenue data: Missing required columns: {', '.join(missing_columns)}")
+        st_obj.info("Please ensure your Revenue data has 'Title' and 'Amount' columns.")
+        
+        # Display the actual columns in the DataFrame for debugging
+        st_obj.subheader("Current Revenue Data Columns")
+        st_obj.write(list(revenue_df.columns))
+        
+        # Display sample data if available
+        if not revenue_df.empty:
+            st_obj.subheader("Sample Revenue Data")
+            st_obj.dataframe(revenue_df.head(5))
+        return
+    
     # Filter out rows with missing or zero amounts
     valid_revenue = revenue_df[(revenue_df['Amount'].notna()) & (revenue_df['Amount'] > 0)]
     

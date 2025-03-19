@@ -262,31 +262,39 @@ def render_other_expenses_results(st_obj, results, other_expenses_df, start_date
             # Create visualization for revenue if there are any
             if not revenue_df.empty:
                 st_obj.write("##### Revenue Breakdown")
-                fig2, ax2 = plt.subplots(figsize=(12, 6))
                 
-                # Sort by amount descending
-                revenue_df = revenue_df.sort_values('Amount', ascending=False)
-                
-                # Create horizontal bar chart
-                bars = ax2.barh(revenue_df['Title'], revenue_df['Amount'], color='#4ECB71')
-                
-                # Add amount labels
-                for bar in bars:
-                    width = bar.get_width()
-                    ax2.text(width * 1.01, bar.get_y() + bar.get_height()/2, 
-                           f'${width:,.0f}', va='center')
-                
-                ax2.set_title('Revenue by Title')
-                ax2.set_xlabel('Amount ($)')
-                ax2.grid(axis='x', linestyle='--', alpha=0.7)
-                plt.tight_layout()
-                
-                st_obj.pyplot(fig2)
-                
-                # Display as table
-                display_revenue = revenue_df.copy()
-                display_revenue['Amount'] = display_revenue['Amount'].map('${:,.2f}'.format)
-                st_obj.dataframe(display_revenue, use_container_width=True)
+                # Check if required columns exist
+                if 'Title' in revenue_df.columns and 'Amount' in revenue_df.columns:
+                    fig2, ax2 = plt.subplots(figsize=(12, 6))
+                    
+                    # Sort by amount descending
+                    revenue_df = revenue_df.sort_values('Amount', ascending=False)
+                    
+                    # Create horizontal bar chart
+                    bars = ax2.barh(revenue_df['Title'], revenue_df['Amount'], color='#4ECB71')
+                    
+                    # Add amount labels
+                    for bar in bars:
+                        width = bar.get_width()
+                        ax2.text(width * 1.01, bar.get_y() + bar.get_height()/2, 
+                               f'${width:,.0f}', va='center')
+                    
+                    ax2.set_title('Revenue by Title')
+                    ax2.set_xlabel('Amount ($)')
+                    ax2.grid(axis='x', linestyle='--', alpha=0.7)
+                    plt.tight_layout()
+                    
+                    st_obj.pyplot(fig2)
+                    
+                    # Display as table
+                    display_revenue = revenue_df.copy()
+                    display_revenue['Amount'] = display_revenue['Amount'].map('${:,.2f}'.format)
+                    st_obj.dataframe(display_revenue, use_container_width=True)
+                else:
+                    st_obj.warning("Cannot create revenue visualization: missing required columns (Title and/or Amount)")
+                    st_obj.write("Available columns:", list(revenue_df.columns))
+                    # Show sample data
+                    st_obj.dataframe(revenue_df.head(5))
         else:
             st_obj.warning("No data available for the selected date range.")
     
