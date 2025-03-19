@@ -1,3 +1,53 @@
+"""
+CAREScan ProForma Editor - Financial modeling and visualization application
+
+TODO: Refactoring Plan
+-----------------------
+This file has grown too large (2800+ lines) and should be refactored into modules:
+
+1. Create a ui/ directory with modules for each tab:
+   - ui/__init__.py
+   - ui/revenue_tab.py
+   - ui/equipment_tab.py
+   - ui/personnel_tab.py
+   - ui/exams_tab.py
+   - ui/other_expenses_tab.py
+   - ui/plots_tab.py
+   - ui/comprehensive_tab.py
+
+2. Create visualization.py module for plotting functions
+
+3. Create app_controller.py to manage state and logic
+
+4. Use the existing financeModels/file_handler.py instead of duplicating file
+   handling code in this file
+
+5. Modify app.py to import and use these modules, making it a thin entry point
+
+Each module should follow this general structure:
+- Define a main function that takes a st (streamlit) object
+- Keep all UI elements related to that tab in its module
+- Extract data processing logic to helper functions
+
+Example:
+```python
+# ui/revenue_tab.py
+def render_revenue_tab(st):
+    st.header("Revenue Data")
+    # Tab-specific UI and logic here
+```
+
+Then app.py just needs to import and use these modules:
+```python
+from ui.revenue_tab import render_revenue_tab
+# ...other imports...
+
+# In the appropriate tab
+with tabs[0]:
+    render_revenue_tab(st)
+```
+"""
+
 import streamlit as st
 import pandas as pd
 import json
@@ -12,6 +62,12 @@ from financeModels.equipment_expenses import EquipmentExpenseCalculator, calcula
 from financeModels.other_expenses import OtherExpensesCalculator, calculate_other_expenses
 from financeModels.comprehensive_proforma import ComprehensiveProformaCalculator, calculate_comprehensive_proforma, get_exam_calculator_from_proforma_params
 import matplotlib.ticker as mticker
+
+# Import the refactored modules
+from ui.revenue_tab import render_revenue_tab
+from ui.equipment_tab import render_equipment_tab
+from ui.personnel_tab import render_personnel_tab
+from ui.exams_tab import render_exams_tab
 
 # Set page configuration
 st.set_page_config(
@@ -227,6 +283,14 @@ tabs = st.tabs([
 
 # CSV Editor tabs
 for i, name in enumerate(CSV_FILES.keys()):
+    if name == "Personnel":
+        # Personnel tab has been refactored to a separate module
+        continue
+    
+    if name == "Exams":
+        # Exams tab has been refactored to a separate module
+        continue
+    
     with tabs[i]:
         st.header(f"{name} Data")
         
@@ -350,129 +414,17 @@ for i, name in enumerate(CSV_FILES.keys()):
                     st.error(f"Error saving {name}: {str(e)}")
                     st.error(traceback.format_exc())
 
-# Personnel Expense Plots tab
+# Personnel tab (refactored)
+with tabs[2]:
+    render_personnel_tab(st)
+
+# Exams tab (refactored)
+with tabs[3]:
+    render_exams_tab(st)
+
+# Personnel Expense Plots tab (now included in personnel_tab.py)
 with tabs[5]:
-    st.header("Personnel Expense Plots")
-    
-    # Explanation of these plots
-    st.info(
-        "This tab visualizes the personnel expenses based on the Personnel.csv data. "
-        "It shows annual expenses, expenses by institution and staff type, and headcount over time."
-    )
-    
-    # Date range selection
-    st.subheader("Select Date Range")
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = st.date_input("Start Date", value=pd.to_datetime("01/01/2025"), format="MM/DD/YYYY", key="personnel_start_date")
-        start_date_str = start_date.strftime("%m/%d/%Y")
-    with col2:
-        end_date = st.date_input("End Date", value=pd.to_datetime("12/31/2029"), format="MM/DD/YYYY", key="personnel_end_date")
-        end_date_str = end_date.strftime("%m/%d/%Y")
-    
-    # Generate visualizations
-    if st.button("Generate Personnel Expense Plots", key="generate_personnel_plots"):
-        try:
-            with st.spinner("Calculating personnel expenses and generating plots..."):
-                # Check if Personnel data is available
-                if 'Personnel' not in st.session_state.dataframes or st.session_state.dataframes['Personnel'].empty:
-                    st.error("Personnel data is not available. Please upload Personnel.csv file.")
-                else:
-                    # Calculate personnel expenses
-                    personnel_data = st.session_state.dataframes['Personnel']
-                    results = calculate_personnel_expenses(
-                        personnel_data=personnel_data,
-                        start_date=start_date_str,
-                        end_date=end_date_str
-                    )
-                    
-                    # Display the first visualizations
-                    st.subheader("Total Personnel Expenses by Year")
-                    annual_df = results['annual']
-                    
-                    fig1, ax1 = plt.subplots(figsize=(12, 6))
-                    annual_totals = annual_df.groupby('Year')['Total_Expense'].sum()
-                    annual_totals.plot(kind='bar', color='skyblue', ax=ax1)
-                    ax1.set_title('Total Personnel Expenses by Year')
-                    ax1.set_xlabel('Year')
-                    ax1.set_ylabel('Total Expense ($)')
-                    ax1.grid(axis='y', linestyle='--', alpha=0.7)
-                    ax1.tick_params(axis='x', rotation=0)
-                    st.pyplot(fig1)
-                    
-                    # Display summary of annual expenses
-                    st.dataframe(annual_totals.reset_index().rename(
-                        columns={'Year': 'Year', 'Total_Expense': 'Total Expense ($)'}
-                    ))
-                    
-                    # Display visualization 2: Expenses by institution and type
-                    st.subheader("Personnel Expenses by Institution and Type")
-                    category_df = results['by_category']
-                    
-                    fig2, ax2 = plt.subplots(figsize=(14, 7))
-                    pivot_df = category_df.pivot_table(
-                        index='Institution', 
-                        columns='Type', 
-                        values='Total_Expense',
-                        aggfunc='sum',
-                        fill_value=0
-                    )
-                    pivot_df.plot(kind='bar', stacked=True, colormap='viridis', ax=ax2)
-                    ax2.set_title('Personnel Expenses by Institution and Type')
-                    ax2.set_xlabel('Institution')
-                    ax2.set_ylabel('Total Expense ($)')
-                    ax2.grid(axis='y', linestyle='--', alpha=0.7)
-                    ax2.tick_params(axis='x', rotation=45)
-                    ax2.legend(title='Staff Type')
-                    st.pyplot(fig2)
-                    
-                    # Display summary of category expenses
-                    st.dataframe(category_df)
-                    
-                    # Display visualization 3: Headcount over time
-                    st.subheader("FTE Count Over Time by Staff Type")
-                    headcount_df = results['headcount']
-                    
-                    # Create a date column for better plotting
-                    headcount_df['Date'] = pd.to_datetime(
-                        headcount_df['Year'].astype(str) + '-' + 
-                        headcount_df['Month'].astype(str) + '-01'
-                    )
-                    
-                    fig3, ax3 = plt.subplots(figsize=(14, 6))
-                    headcount_pivoted = headcount_df.pivot_table(
-                        index='Date', 
-                        columns='Type', 
-                        values='FTE_Count',
-                        aggfunc='sum',
-                        fill_value=0
-                    )
-                    headcount_pivoted.plot(kind='area', stacked=True, alpha=0.7, colormap='tab10', ax=ax3)
-                    ax3.set_title('FTE Count Over Time by Staff Type')
-                    ax3.set_xlabel('Date')
-                    ax3.set_ylabel('FTE Count')
-                    ax3.grid(linestyle='--', alpha=0.7)
-                    ax3.legend(title='Staff Type')
-                    st.pyplot(fig3)
-                    
-                    # Display grand total
-                    st.subheader("Grand Total")
-                    grand_total = results['grand_total']
-                    
-                    # Format with commas for thousands
-                    formatted_grand_total = {
-                        'Base Expense': f"${grand_total['Base_Expense']:,.2f}",
-                        'Fringe Amount': f"${grand_total['Fringe_Amount']:,.2f}",
-                        'Total Expense': f"${grand_total['Total_Expense']:,.2f}"
-                    }
-                    
-                    # Display as a table
-                    st.table(pd.DataFrame([formatted_grand_total]))
-        
-        except Exception as e:
-            import traceback
-            st.error(f"Error generating personnel expense plots: {str(e)}")
-            st.error(traceback.format_exc())
+    st.info("The Personnel Expense Plots tab has been integrated into the Personnel tab. Please use the Personnel tab for all personnel-related functionality.")
 
 # Equipment Expense Plots tab
 with tabs[6]:
@@ -753,360 +705,9 @@ with tabs[6]:
             st.error(f"Error generating equipment expense plots: {str(e)}")
             st.error(traceback.format_exc())
 
-# Exam Revenue Analysis tab
+# Exam Revenue Analysis tab (now included in exams_tab.py)
 with tabs[7]:
-    st.header("Exam Revenue Analysis")
-    
-    # Explanation of these plots
-    st.info(
-        "This tab analyzes exam revenue based on the Exams.csv and Revenue.csv data. "
-        "It shows annual exam volume, revenue by source, and projected net revenue."
-    )
-    
-    # Date range selection (replacing year range selection)
-    st.subheader("Select Date Range")
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = st.date_input(
-            "Start Date",
-            value=pd.to_datetime("01/01/2025", format='%m/%d/%Y'),
-            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
-            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
-            format="MM/DD/YYYY",
-            key="exam_start_date"
-        )
-    with col2:
-        end_date = st.date_input(
-            "End Date",
-            value=pd.to_datetime("12/31/2029", format='%m/%d/%Y'),
-            min_value=pd.to_datetime("01/01/2020", format='%m/%d/%Y'),
-            max_value=pd.to_datetime("12/31/2040", format='%m/%d/%Y'),
-            format="MM/DD/YYYY",
-            key="exam_end_date"
-        )
-    
-    # Revenue source selection
-    st.subheader("Select Revenue Sources")
-    if 'Revenue' in st.session_state.dataframes:
-        revenue_sources = st.session_state.dataframes['Revenue']['Title'].tolist()
-        selected_sources = st.multiselect("Revenue Sources", revenue_sources, default=revenue_sources, key="exam_revenue_sources")
-    else:
-        selected_sources = []
-        st.error("Revenue data is not available. Please upload Revenue.csv file.")
-    
-    # Working days per year option
-    work_days = st.number_input("Working Days Per Year", min_value=200, max_value=300, value=250, key="exam_work_days")
-    
-    # Generate visualizations
-    if st.button("Generate Exam Revenue Analysis", key="generate_exam_analysis"):
-        try:
-            with st.spinner("Calculating exam revenue and generating plots..."):
-                # Check if required data is available
-                required_tables = ['Revenue', 'Exams', 'Personnel', 'Equipment']
-                missing_tables = [table for table in required_tables if table not in st.session_state.dataframes or st.session_state.dataframes[table].empty]
-                
-                if missing_tables:
-                    st.error(f"The following required data is missing: {', '.join(missing_tables)}")
-                elif not selected_sources:
-                    st.error("Please select at least one revenue source.")
-                else:
-                    # Extract years from selected dates
-                    start_year = start_date.year
-                    end_year = end_date.year
-                    
-                    # Initialize the calculator
-                    calculator = ExamRevenueCalculator(
-                        exams_data=st.session_state.dataframes['Exams'],
-                        revenue_data=st.session_state.dataframes['Revenue'],
-                        personnel_data=st.session_state.dataframes['Personnel'],
-                        equipment_data=st.session_state.dataframes['Equipment'],
-                        start_date=start_date.strftime('%m/%d/%Y')
-                    )
-                    
-                    # Calculate exam revenue for all selected sources
-                    results = calculator.calculate_multi_year_exam_revenue(
-                        start_year=start_year,
-                        end_year=end_year,
-                        revenue_sources=selected_sources,
-                        work_days_per_year=work_days
-                    )
-                    
-                    if results.empty:
-                        st.warning("No exam revenue data could be calculated. This might be because there is no equipment or required staff available during the selected period.")
-                    else:
-                        # Display key metrics
-                        st.subheader("Key Metrics Summary")
-                        
-                        # Calculate summary metrics
-                        total_volume = results['AnnualVolume'].sum()
-                        total_revenue = results['Total_Revenue'].sum()
-                        total_expenses = results['Total_Direct_Expenses'].sum()
-                        net_revenue = results['Net_Revenue'].sum()
-                        
-                        # Display metrics in columns
-                        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-                        with metric_col1:
-                            st.metric("Total Exam Volume", f"{total_volume:,.0f}")
-                        with metric_col2:
-                            st.metric("Total Revenue", f"${total_revenue:,.2f}")
-                        with metric_col3:
-                            st.metric("Total Expenses", f"${total_expenses:,.2f}")
-                        with metric_col4:
-                            st.metric("Net Revenue", f"${net_revenue:,.2f}")
-                        
-                        # Display visualizations
-                        
-                        # 1. Total Revenue by Year and Revenue Source
-                        st.subheader("Total Revenue by Year and Revenue Source")
-                        fig1, ax1 = plt.subplots(figsize=(12, 6))
-                        revenue_by_source = results.groupby(['Year', 'RevenueSource'])['Total_Revenue'].sum().unstack()
-                        revenue_by_source.plot(kind='bar', stacked=True, ax=ax1, colormap='viridis')
-                        ax1.set_title('Total Revenue by Year and Revenue Source')
-                        ax1.set_xlabel('Year')
-                        ax1.set_ylabel('Revenue ($)')
-                        ax1.grid(axis='y', linestyle='--', alpha=0.7)
-                        ax1.legend(title='Revenue Source')
-                        st.pyplot(fig1)
-                        
-                        # Show summary table
-                        st.dataframe(revenue_by_source)
-                        
-                        # 2. Exam Volume by Year
-                        st.subheader("Exam Volume by Year")
-                        fig2, ax2 = plt.subplots(figsize=(12, 6))
-                        volume_by_year = results.groupby('Year')['AnnualVolume'].sum()
-                        volume_by_year.plot(kind='bar', ax=ax2, color='skyblue')
-                        ax2.set_title('Total Exam Volume by Year')
-                        ax2.set_xlabel('Year')
-                        ax2.set_ylabel('Annual Volume')
-                        ax2.grid(axis='y', linestyle='--', alpha=0.7)
-                        for i, v in enumerate(volume_by_year):
-                            ax2.text(i, v + 0.1, f"{v:,.0f}", ha='center')
-                        st.pyplot(fig2)
-                        
-                        # 3. Revenue vs Expenses by Year
-                        st.subheader("Revenue vs Expenses by Year")
-                        fig3, ax3 = plt.subplots(figsize=(12, 6))
-                        financials = results.groupby('Year').agg({
-                            'Total_Revenue': 'sum',
-                            'Total_Direct_Expenses': 'sum'
-                        })
-                        financials.plot(kind='bar', ax=ax3)
-                        ax3.set_title('Revenue vs Direct Expenses by Year')
-                        ax3.set_xlabel('Year')
-                        ax3.set_ylabel('Amount ($)')
-                        ax3.grid(axis='y', linestyle='--', alpha=0.7)
-                        st.pyplot(fig3)
-                        
-                        # 4. Top Exams by Revenue
-                        st.subheader("Top Exams by Revenue")
-                        exam_revenue = results.groupby('Exam')['Total_Revenue'].sum().sort_values(ascending=False)
-                        fig4, ax4 = plt.subplots(figsize=(12, 6))
-                        
-                        # Plot top 10 exams
-                        top_exams = exam_revenue.head(10)
-                        colors = plt.cm.YlOrRd(np.linspace(0.2, 0.8, len(top_exams)))
-                        top_exams.plot(kind='bar', ax=ax4, color=colors)
-                        ax4.set_title('Top 10 Exams by Total Revenue')
-                        ax4.set_xlabel('Exam')
-                        ax4.set_ylabel('Total Revenue ($)')
-                        ax4.grid(axis='y', linestyle='--', alpha=0.7)
-                        ax4.tick_params(axis='x', rotation=45)
-                        st.pyplot(fig4)
-                        
-                        # 5. Detailed Data Table
-                        st.subheader("Detailed Exam Revenue Data")
-                        
-                        # Create a summary by exam and year
-                        summary_by_exam_year = results.groupby(['Year', 'Exam']).agg({
-                            'AnnualVolume': 'sum',
-                            'Total_Revenue': 'sum',
-                            'Total_Direct_Expenses': 'sum',
-                            'Net_Revenue': 'sum'
-                        }).reset_index()
-                        
-                        # Format the summary for display
-                        formatted_summary = summary_by_exam_year.copy()
-                        formatted_summary['AnnualVolume'] = formatted_summary['AnnualVolume'].map('{:,.0f}'.format)
-                        formatted_summary['Total_Revenue'] = formatted_summary['Total_Revenue'].map('${:,.2f}'.format)
-                        formatted_summary['Total_Direct_Expenses'] = formatted_summary['Total_Direct_Expenses'].map('${:,.2f}'.format)
-                        formatted_summary['Net_Revenue'] = formatted_summary['Net_Revenue'].map('${:,.2f}'.format)
-                        
-                        # Display the summary
-                        st.dataframe(formatted_summary)
-                        
-                        # 6. Yearly Summary
-                        st.subheader("Yearly Financial Summary")
-                        yearly_summary = results.groupby('Year').agg({
-                            'AnnualVolume': 'sum',
-                            'Total_Revenue': 'sum',
-                            'Total_Direct_Expenses': 'sum',
-                            'Net_Revenue': 'sum'
-                        }).reset_index()
-                        
-                        # Format the yearly summary
-                        formatted_yearly = yearly_summary.copy()
-                        formatted_yearly['AnnualVolume'] = formatted_yearly['AnnualVolume'].map('{:,.0f}'.format)
-                        formatted_yearly['Total_Revenue'] = formatted_yearly['Total_Revenue'].map('${:,.2f}'.format)
-                        formatted_yearly['Total_Direct_Expenses'] = formatted_yearly['Total_Direct_Expenses'].map('${:,.2f}'.format)
-                        formatted_yearly['Net_Revenue'] = formatted_yearly['Net_Revenue'].map('${:,.2f}'.format)
-                        
-                        # Display the yearly summary
-                        st.dataframe(formatted_yearly)
-                        
-                        # Allow user to download the results as CSV
-                        st.subheader("Download Results")
-                        csv = results.to_csv(index=False)
-                        st.download_button(
-                            label="Download Exam Revenue Data as CSV",
-                            data=csv,
-                            file_name="exam_revenue_analysis.csv",
-                            mime="text/csv",
-                        )
-                        
-                        # Add a section for results by individual revenue source
-                        st.subheader("Results by Revenue Source")
-                        st.info("This section shows detailed metrics and visualizations for each revenue source individually.")
-                        
-                        # Create an expander for each revenue source
-                        for revenue_source in selected_sources:
-                            with st.expander(f"Revenue Source: {revenue_source}", expanded=False):
-                                # Filter results for this revenue source
-                                source_results = results[results['RevenueSource'] == revenue_source]
-                                
-                                if source_results.empty:
-                                    st.warning(f"No data available for revenue source: {revenue_source}")
-                                    continue
-                                
-                                # Calculate key metrics for this revenue source
-                                source_volume = source_results['AnnualVolume'].sum()
-                                source_revenue = source_results['Total_Revenue'].sum()
-                                source_expenses = source_results['Total_Direct_Expenses'].sum()
-                                source_net = source_results['Net_Revenue'].sum()
-                                
-                                # Display metrics in columns
-                                src_col1, src_col2, src_col3, src_col4 = st.columns(4)
-                                with src_col1:
-                                    st.metric("Total Volume", f"{source_volume:,.0f}")
-                                with src_col2:
-                                    st.metric("Total Revenue", f"${source_revenue:,.2f}")
-                                with src_col3:
-                                    st.metric("Total Expenses", f"${source_expenses:,.2f}")
-                                with src_col4:
-                                    st.metric("Net Revenue", f"${source_net:,.2f}")
-                                
-                                # Yearly trend for this revenue source
-                                yearly_source = source_results.groupby('Year').agg({
-                                    'AnnualVolume': 'sum',
-                                    'Total_Revenue': 'sum', 
-                                    'Total_Direct_Expenses': 'sum',
-                                    'Net_Revenue': 'sum'
-                                }).reset_index()
-                                
-                                # Plot yearly trend
-                                fig_src1, ax_src1 = plt.subplots(figsize=(10, 5))
-                                ax_src1.bar(yearly_source['Year'], yearly_source['AnnualVolume'], color='skyblue')
-                                ax_src1.set_title(f'{revenue_source}: Annual Volume by Year')
-                                ax_src1.set_xlabel('Year')
-                                ax_src1.set_ylabel('Volume')
-                                ax_src1.grid(axis='y', linestyle='--', alpha=0.7)
-                                
-                                # Add data labels
-                                for i, v in enumerate(yearly_source['AnnualVolume']):
-                                    ax_src1.text(yearly_source['Year'].iloc[i], v + 0.1, f"{v:,.0f}", ha='center')
-                                
-                                st.pyplot(fig_src1)
-                                
-                                # Plot revenue and expenses
-                                fig_src2, ax_src2 = plt.subplots(figsize=(10, 5))
-                                
-                                yearly_source.plot(
-                                    x='Year', 
-                                    y=['Total_Revenue', 'Total_Direct_Expenses', 'Net_Revenue'],
-                                    kind='bar',
-                                    ax=ax_src2
-                                )
-                                
-                                ax_src2.set_title(f'{revenue_source}: Financial Summary by Year')
-                                ax_src2.set_xlabel('Year')
-                                ax_src2.set_ylabel('Amount ($)')
-                                ax_src2.grid(axis='y', linestyle='--', alpha=0.7)
-                                ax_src2.legend(['Total Revenue', 'Total Expenses', 'Net Revenue'])
-                                
-                                st.pyplot(fig_src2)
-                                
-                                # Top exams for this revenue source
-                                st.subheader(f"Top Exams for {revenue_source}")
-                                source_by_exam = source_results.groupby('Exam').agg({
-                                    'AnnualVolume': 'sum',
-                                    'Total_Revenue': 'sum',
-                                    'Total_Direct_Expenses': 'sum',
-                                    'Net_Revenue': 'sum'
-                                }).reset_index()
-                                
-                                # Sort by revenue
-                                source_by_exam = source_by_exam.sort_values('Total_Revenue', ascending=False)
-                                
-                                # Format for display
-                                formatted_source_exam = source_by_exam.copy()
-                                formatted_source_exam['AnnualVolume'] = formatted_source_exam['AnnualVolume'].map('{:,.0f}'.format)
-                                formatted_source_exam['Total_Revenue'] = formatted_source_exam['Total_Revenue'].map('${:,.2f}'.format)
-                                formatted_source_exam['Total_Direct_Expenses'] = formatted_source_exam['Total_Direct_Expenses'].map('${:,.2f}'.format)
-                                formatted_source_exam['Net_Revenue'] = formatted_source_exam['Net_Revenue'].map('${:,.2f}'.format)
-                                
-                                # Show the table
-                                st.dataframe(formatted_source_exam)
-                                
-                                # Pie chart of exam volumes
-                                fig_src3, ax_src3 = plt.subplots(figsize=(10, 8))
-                                source_by_exam.plot(
-                                    kind='pie',
-                                    y='AnnualVolume',
-                                    labels=source_by_exam['Exam'],
-                                    autopct='%1.1f%%', startangle=90, shadow=True)
-                                ax_src3.set_title(f'{revenue_source}: Distribution of Exam Volumes')
-                                ax_src3.set_ylabel('')
-                                
-                                st.pyplot(fig_src3)
-                                
-                                # Yearly summary table for this revenue source
-                                st.subheader(f"Yearly Summary for {revenue_source}")
-                                
-                                # Format the yearly summary for this source
-                                formatted_yearly_source = yearly_source.copy()
-                                formatted_yearly_source['AnnualVolume'] = formatted_yearly_source['AnnualVolume'].map('{:,.0f}'.format)
-                                formatted_yearly_source['Total_Revenue'] = formatted_yearly_source['Total_Revenue'].map('${:,.2f}'.format)
-                                formatted_yearly_source['Total_Direct_Expenses'] = formatted_yearly_source['Total_Direct_Expenses'].map('${:,.2f}'.format)
-                                formatted_yearly_source['Net_Revenue'] = formatted_yearly_source['Net_Revenue'].map('${:,.2f}'.format)
-                                
-                                st.dataframe(formatted_yearly_source)
-                                
-                                # Monthly detail (estimated by dividing annual by 12)
-                                st.subheader(f"Monthly Estimates for {revenue_source}")
-                                
-                                # Calculate monthly averages
-                                monthly_source = yearly_source.copy()
-                                monthly_source['MonthlyVolume'] = monthly_source['AnnualVolume'] / 12
-                                monthly_source['MonthlyRevenue'] = monthly_source['Total_Revenue'] / 12
-                                monthly_source['MonthlyExpenses'] = monthly_source['Total_Direct_Expenses'] / 12
-                                monthly_source['MonthlyNetRevenue'] = monthly_source['Net_Revenue'] / 12
-                                
-                                # Format for display
-                                formatted_monthly = monthly_source[['Year', 'MonthlyVolume', 'MonthlyRevenue', 'MonthlyExpenses', 'MonthlyNetRevenue']].copy()
-                                formatted_monthly['MonthlyVolume'] = formatted_monthly['MonthlyVolume'].map('{:,.1f}'.format)
-                                formatted_monthly['MonthlyRevenue'] = formatted_monthly['MonthlyRevenue'].map('${:,.2f}'.format)
-                                formatted_monthly['MonthlyExpenses'] = formatted_monthly['MonthlyExpenses'].map('${:,.2f}'.format)
-                                formatted_monthly['MonthlyNetRevenue'] = formatted_monthly['MonthlyNetRevenue'].map('${:,.2f}'.format)
-                                
-                                # Rename columns for clarity
-                                formatted_monthly.columns = ['Year', 'Monthly Volume', 'Monthly Revenue', 'Monthly Expenses', 'Monthly Net Revenue']
-                                
-                                st.dataframe(formatted_monthly)
-        
-        except Exception as e:
-            import traceback
-            st.error(f"Error generating exam revenue analysis: {str(e)}")
-            st.error(traceback.format_exc())
+    st.info("The Exam Revenue Analysis tab has been integrated into the Exams tab. Please use the Exams tab for all exam-related functionality.")
 
 # Other Expense Plots tab
 with tabs[8]:

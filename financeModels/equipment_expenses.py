@@ -11,7 +11,8 @@ class EquipmentExpenseCalculator:
     """
     
     def __init__(self, equipment_data: pd.DataFrame = None, equipment_file: str = None, 
-                 days_between_travel: int = 5, miles_per_travel: int = 20):
+                 days_between_travel: int = 5, miles_per_travel: int = 20,
+                 depreciation_method: str = "Straight Line"):
         """
         Initialize the calculator with equipment data.
 
@@ -20,9 +21,11 @@ class EquipmentExpenseCalculator:
             equipment_file: Path to a CSV file containing equipment data
             days_between_travel: Number of days between travel events (default: 5)
             miles_per_travel: Number of miles traveled in each travel event (default: 20)
+            depreciation_method: Method for calculating depreciation, either "Straight Line" or "Double Declining Balance" (default: "Straight Line")
         """
         self.days_between_travel = days_between_travel
         self.miles_per_travel = miles_per_travel
+        self.depreciation_method = depreciation_method
         
         if equipment_data is not None:
             self.equipment_data = equipment_data.copy()
@@ -143,7 +146,26 @@ class EquipmentExpenseCalculator:
                 
                 # Calculate annual depreciation (only starts after construction is complete)
                 if year >= start_date_equipment.year:
-                    annual_depreciation = equipment['PurchaseCost'] / equipment['Lifespan']
+                    if self.depreciation_method == "Straight Line":
+                        # Straight Line: Equal depreciation over the lifespan
+                        annual_depreciation = equipment['PurchaseCost'] / equipment['Lifespan']
+                    else:  # Double Declining Balance
+                        # Calculate the age of the equipment in years
+                        equipment_age = year - start_date_equipment.year
+                        # Double the straight-line rate
+                        rate = 2 / equipment['Lifespan']
+                        # Apply declining balance to remaining book value
+                        # For first year of depreciation
+                        if equipment_age == 0:
+                            annual_depreciation = equipment['PurchaseCost'] * rate
+                        else:
+                            # Calculate accumulated depreciation up to previous year
+                            remaining_value = equipment['PurchaseCost']
+                            for i in range(equipment_age):
+                                year_depreciation = remaining_value * rate
+                                remaining_value -= year_depreciation
+                            annual_depreciation = remaining_value * rate
+                    
                     # Calculate prorated depreciation for partial years
                     depreciation = annual_depreciation * year_fraction
                 else:
@@ -295,7 +317,8 @@ class EquipmentExpenseCalculator:
 
 # Utility function for direct use without instantiating the class
 def calculate_equipment_expenses(equipment_data: pd.DataFrame, start_date: str, end_date: str,
-                               days_between_travel: int = 5, miles_per_travel: int = 20) -> Dict[str, pd.DataFrame]:
+                               days_between_travel: int = 5, miles_per_travel: int = 20,
+                               depreciation_method: str = "Straight Line") -> Dict[str, pd.DataFrame]:
     """
     Utility function to calculate equipment expenses without having to manually instantiate the class.
     
@@ -305,6 +328,7 @@ def calculate_equipment_expenses(equipment_data: pd.DataFrame, start_date: str, 
         end_date: End date in format 'MM/DD/YYYY'
         days_between_travel: Number of days between travel events (default: 5)
         miles_per_travel: Number of miles traveled in each travel event (default: 20)
+        depreciation_method: Method for calculating depreciation, either "Straight Line" or "Double Declining Balance" (default: "Straight Line")
         
     Returns:
         Dictionary with annual expenses, expenses by equipment type, and grand totals
@@ -335,7 +359,8 @@ def calculate_equipment_expenses(equipment_data: pd.DataFrame, start_date: str, 
     calculator = EquipmentExpenseCalculator(
         equipment_data=equipment_data_processed,
         days_between_travel=days_between_travel,
-        miles_per_travel=miles_per_travel
+        miles_per_travel=miles_per_travel,
+        depreciation_method=depreciation_method
     )
     
     annual_expenses = calculator.calculate_annual_expenses(start_date, end_date)
