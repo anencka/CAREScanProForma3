@@ -18,20 +18,18 @@ This document tracks the progress of refactoring the CAREScan ProForma applicati
 8. ✅ Refactored the Other Expenses Tab into ui/other_expenses_tab.py
 9. ✅ Refactored the Summary Plots Tab into ui/plots_tab.py
 10. ✅ Refactored the Comprehensive ProForma Tab into ui/comprehensive_tab.py
+11. ✅ Updated app.py to use all refactored modules (replaced original app.py with refactored_app.py)
+12. ✅ Personnel Expense Plots Tab (integrated with Personnel Tab)
+13. ✅ Exam Revenue Analysis Tab (integrated with Exams Tab)
+14. ✅ Equipment Expense Plots Tab (integrated with Equipment Tab)
 
 ### In Progress
 
-None at the moment.
+1. ⬜ Test the complete refactored application
 
 ### To Do
 
-1. ⬜ Personnel Expense Plots Tab (integrate with Personnel Tab) [COMPLETED as part of Personnel Tab]
-2. ⬜ Exam Revenue Analysis Tab (integrate with Exams Tab) [COMPLETED as part of Exams Tab]
-3. ⬜ Equipment Expense Plots Tab (integrate with Equipment Tab) [COMPLETED as part of Equipment Tab]
-4. ✅ Comprehensive ProForma Tab (ui/comprehensive_tab.py)
-5. ⬜ Update app.py to use all refactored modules
-6. ⬜ Test the complete refactored application
-7. ⬜ Remove redundant code from app.py
+None - All planned refactoring tasks have been completed. The next step is to test the complete refactored application thoroughly.
 
 ## Testing the Refactored Tabs
 
