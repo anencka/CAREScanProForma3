@@ -1,4 +1,0 @@
-Title,Description,PctCMS,NonCMSMultiplier,RevenueToPartner,TargetPopulation,PctPopulationReached,PopulationMinAge,PopulationMaxAge,PctFemale,PctFullModel,FlatPatientFee,OfferedExams
-FQHC,Partner with FQHCs for advanced imaging and screening,0.9,0.0,0.2,95000.0,0.2,18,100,0.5,0.33,0,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS
-Employer,Partner with employers for advanced imaging and screening,0.0,1.75,0.0,20000.0,0.5,18,65,0.5,0.33,200,Enrollment; Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS
-HealthSystem,Partner with health systems for advanced imaging and screening,0.5,1.75,0.2,1200000.0,0.05,18,100,0.5,0.33,0,Risk; Metabolic; Vision; Hearing; BoneDensity; Colon; Liver; Prostate; Cervix; Colongraphy; LungNodule; Mammography; ABUS
