@@ -21,7 +21,7 @@ from ui.personnel_tab import render_personnel_tab
 from ui.exams_tab import render_exams_tab
 from ui.other_expenses_tab import render_other_expenses_tab
 from ui.plots_tab import render_plots_tab
-# from ui.comprehensive_tab import render_comprehensive_tab
+from ui.comprehensive_tab import render_comprehensive_tab
 
 # Set page configuration
 st.set_page_config(
@@ -121,5 +121,4 @@ with tabs[8]:
 
 # Comprehensive ProForma tab
 with tabs[9]:
-    st.header("Comprehensive ProForma")
-    st.warning("Comprehensive ProForma tab module is not yet implemented in this refactored version.") 
+    render_comprehensive_tab(st) 
