@@ -1,3 +1,8 @@
+"""
+Updated equipment expenses module with leasing support.
+This is an update to the financeModels/equipment_expenses.py file.
+"""
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -7,7 +12,7 @@ import calendar
 class EquipmentExpenseCalculator:
     """
     A class to calculate equipment expenses, including purchase costs, depreciation, 
-    service costs, and other related expenses.
+    service costs, lease payments, and other related expenses.
     """
     
     def __init__(self, equipment_data: pd.DataFrame = None, equipment_file: str = None, 
@@ -57,6 +62,16 @@ class EquipmentExpenseCalculator:
                 lambda row: row['PurchaseDate'] + pd.DateOffset(days=row['ConstructionTime']), 
                 axis=1
             )
+        
+        # Add lease columns if they don't exist
+        if 'IsLeased' not in self.equipment_data.columns:
+            self.equipment_data['IsLeased'] = False
+            
+        if 'AnnualLeaseAmount' not in self.equipment_data.columns:
+            self.equipment_data['AnnualLeaseAmount'] = 0.0
+            
+        # Ensure IsLeased is boolean type
+        self.equipment_data['IsLeased'] = self.equipment_data['IsLeased'].astype(bool)
     
     def load_data(self, equipment_data: pd.DataFrame = None, equipment_file: str = None,
                  days_between_travel: int = None, miles_per_travel: int = None):
@@ -144,30 +159,41 @@ class EquipmentExpenseCalculator:
                 days_in_service = (effective_end - effective_start).days + 1
                 year_fraction = days_in_service / days_in_year
                 
-                # Calculate annual depreciation (only starts after construction is complete)
+                # Check if equipment is leased
+                is_leased = equipment.get('IsLeased', False)
+                annual_lease_amount = equipment.get('AnnualLeaseAmount', 0)
+                lease_expense = 0
+                
+                # Calculate annual expenses
                 if year >= start_date_equipment.year:
-                    if self.depreciation_method == "Straight Line":
-                        # Straight Line: Equal depreciation over the lifespan
-                        annual_depreciation = equipment['PurchaseCost'] / equipment['Lifespan']
-                    else:  # Double Declining Balance
-                        # Calculate the age of the equipment in years
-                        equipment_age = year - start_date_equipment.year
-                        # Double the straight-line rate
-                        rate = 2 / equipment['Lifespan']
-                        # Apply declining balance to remaining book value
-                        # For first year of depreciation
-                        if equipment_age == 0:
-                            annual_depreciation = equipment['PurchaseCost'] * rate
-                        else:
-                            # Calculate accumulated depreciation up to previous year
-                            remaining_value = equipment['PurchaseCost']
-                            for i in range(equipment_age):
-                                year_depreciation = remaining_value * rate
-                                remaining_value -= year_depreciation
-                            annual_depreciation = remaining_value * rate
-                    
-                    # Calculate prorated depreciation for partial years
-                    depreciation = annual_depreciation * year_fraction
+                    if is_leased:
+                        # Leased equipment: Calculate lease expense
+                        lease_expense = annual_lease_amount * year_fraction
+                        depreciation = 0  # No depreciation for leased equipment
+                    else:
+                        # Purchased equipment: Calculate depreciation
+                        if self.depreciation_method == "Straight Line":
+                            # Straight Line: Equal depreciation over the lifespan
+                            annual_depreciation = equipment['PurchaseCost'] / equipment['Lifespan']
+                        else:  # Double Declining Balance
+                            # Calculate the age of the equipment in years
+                            equipment_age = year - start_date_equipment.year
+                            # Double the straight-line rate
+                            rate = 2 / equipment['Lifespan']
+                            # Apply declining balance to remaining book value
+                            # For first year of depreciation
+                            if equipment_age == 0:
+                                annual_depreciation = equipment['PurchaseCost'] * rate
+                            else:
+                                # Calculate accumulated depreciation up to previous year
+                                remaining_value = equipment['PurchaseCost']
+                                for i in range(equipment_age):
+                                    year_depreciation = remaining_value * rate
+                                    remaining_value -= year_depreciation
+                                annual_depreciation = remaining_value * rate
+                        
+                        # Calculate prorated depreciation for partial years
+                        depreciation = annual_depreciation * year_fraction
                 else:
                     depreciation = 0
                 
@@ -201,7 +227,7 @@ class EquipmentExpenseCalculator:
                     travel_expense = travel_days_count * self.miles_per_travel * equipment['MilageCost']
                 
                 # Calculate total annual expense
-                total_annual_expense = service_cost + accreditation_cost + insurance_cost + travel_expense
+                total_annual_expense = service_cost + accreditation_cost + insurance_cost + travel_expense + lease_expense
                 
                 # Add record to the list
                 record = {
@@ -210,11 +236,13 @@ class EquipmentExpenseCalculator:
                     'PurchaseCost': equipment['PurchaseCost'],
                     'QuantityPurchased': equipment['Quantity'],
                     'AnnualDepreciation': depreciation,
+                    'LeaseExpense': lease_expense,
                     'ServiceCost': service_cost,
                     'AccreditationCost': accreditation_cost,
                     'InsuranceCost': insurance_cost,
                     'TravelExpense': travel_expense,
-                    'TotalAnnualExpense': total_annual_expense
+                    'TotalAnnualExpense': total_annual_expense,
+                    'IsLeased': is_leased
                 }
                 annual_expenses.append(record)
         
@@ -244,11 +272,13 @@ class EquipmentExpenseCalculator:
             'PurchaseCost': 'first',
             'QuantityPurchased': 'first',
             'AnnualDepreciation': 'sum',
+            'LeaseExpense': 'sum',
             'ServiceCost': 'sum',
             'AccreditationCost': 'sum',
             'InsuranceCost': 'sum',
             'TravelExpense': 'sum',
-            'TotalAnnualExpense': 'sum'
+            'TotalAnnualExpense': 'sum',
+            'IsLeased': 'first'
         }).reset_index()
         
         return equipment_df
@@ -271,6 +301,7 @@ class EquipmentExpenseCalculator:
             return {
                 'TotalPurchaseCost': 0,
                 'TotalDepreciation': 0,
+                'TotalLeaseExpense': 0,
                 'TotalServiceCost': 0,
                 'TotalAccreditationCost': 0,
                 'TotalInsuranceCost': 0,
@@ -278,12 +309,19 @@ class EquipmentExpenseCalculator:
                 'TotalAnnualExpense': 0
             }
         
-        # Calculate grand totals
-        purchase_costs = self.equipment_data['PurchaseCost'] * self.equipment_data['Quantity']
+        # Handle leased vs. purchased equipment for purchase costs
+        purchased_equipment = self.equipment_data[~self.equipment_data['IsLeased']]
+        if not purchased_equipment.empty:
+            purchase_costs = purchased_equipment['PurchaseCost'] * purchased_equipment['Quantity']
+            total_purchase_cost = purchase_costs.sum()
+        else:
+            total_purchase_cost = 0
         
+        # Calculate grand totals
         grand_total = {
-            'TotalPurchaseCost': purchase_costs.sum(),
+            'TotalPurchaseCost': total_purchase_cost,
             'TotalDepreciation': annual_df['AnnualDepreciation'].sum(),
+            'TotalLeaseExpense': annual_df['LeaseExpense'].sum(),
             'TotalServiceCost': annual_df['ServiceCost'].sum(),
             'TotalAccreditationCost': annual_df['AccreditationCost'].sum(),
             'TotalInsuranceCost': annual_df['InsuranceCost'].sum(),
@@ -355,6 +393,16 @@ def calculate_equipment_expenses(equipment_data: pd.DataFrame, start_date: str, 
             axis=1
         )
     
+    # Add lease columns if they don't exist
+    if 'IsLeased' not in equipment_data_processed.columns:
+        equipment_data_processed['IsLeased'] = False
+    
+    if 'AnnualLeaseAmount' not in equipment_data_processed.columns:
+        equipment_data_processed['AnnualLeaseAmount'] = 0.0
+    
+    # Ensure IsLeased is boolean type
+    equipment_data_processed['IsLeased'] = equipment_data_processed['IsLeased'].astype(bool)
+    
     # Initialize the calculator with the processed data
     calculator = EquipmentExpenseCalculator(
         equipment_data=equipment_data_processed,
@@ -371,4 +419,4 @@ def calculate_equipment_expenses(equipment_data: pd.DataFrame, start_date: str, 
         'annual': annual_expenses,
         'by_equipment': expenses_by_equipment,
         'grand_total': grand_total
-    } 
+    }

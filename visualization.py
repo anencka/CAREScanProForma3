@@ -216,6 +216,224 @@ def create_equipment_expenses_plot(df: pd.DataFrame) -> Tuple[plt.Figure, plt.Fi
     
     return fig1, fig2
 
+"""
+Visualization module for comparing equipment lease vs purchase options.
+This can be integrated into the visualization.py file.
+"""
+
+
+
+def create_lease_vs_purchase_comparison(equipment_df: pd.DataFrame, 
+                                       annual_expenses: pd.DataFrame, 
+                                       years: int = 10) -> Tuple[plt.Figure, plt.Figure]:
+    """
+    Create visualizations comparing leased vs. purchased equipment costs over time.
+    
+    Args:
+        equipment_df: DataFrame containing equipment data
+        annual_expenses: DataFrame with calculated annual expenses
+        years: Number of years for long-term comparison (default: 10)
+        
+    Returns:
+        Tuple of Matplotlib figures (cost comparison, cumulative comparison)
+    """
+    from visualization import setup_plot_style, format_currency
+    
+    # Create figures
+    fig1, ax1 = setup_plot_style(figsize=(10, 6))
+    fig2, ax2 = setup_plot_style(figsize=(10, 6))
+    
+    # Split data into leased and purchased equipment
+    if 'IsLeased' in equipment_df.columns:
+        leased_equipment = equipment_df[equipment_df['IsLeased'] == True]
+        purchased_equipment = equipment_df[equipment_df['IsLeased'] == False]
+    else:
+        # If IsLeased column doesn't exist, assume all equipment is purchased
+        leased_equipment = pd.DataFrame()
+        purchased_equipment = equipment_df
+    
+    # Calculate annual costs for comparison
+    annual_costs = {
+        'Leased': {},
+        'Purchased': {}
+    }
+    
+    # For leased equipment: Annual lease payment + annual service/maintenance
+    if not leased_equipment.empty:
+        total_lease_payment = leased_equipment['AnnualLeaseAmount'].sum() if 'AnnualLeaseAmount' in leased_equipment.columns else 0
+        total_lease_service = leased_equipment['AnnualServiceCost'].sum() if 'AnnualServiceCost' in leased_equipment.columns else 0
+        total_lease_accreditation = leased_equipment['AnnualAccreditationCost'].sum() if 'AnnualAccreditationCost' in leased_equipment.columns else 0
+        total_lease_insurance = leased_equipment['AnnualInsuranceCost'].sum() if 'AnnualInsuranceCost' in leased_equipment.columns else 0
+        
+        annual_costs['Leased']['Lease Payment'] = total_lease_payment
+        annual_costs['Leased']['Service'] = total_lease_service
+        annual_costs['Leased']['Accreditation'] = total_lease_accreditation
+        annual_costs['Leased']['Insurance'] = total_lease_insurance
+        annual_costs['Leased']['Total'] = total_lease_payment + total_lease_service + total_lease_accreditation + total_lease_insurance
+    
+    # For purchased equipment: Depreciation + annual service/maintenance
+    if not purchased_equipment.empty:
+        total_purchase_cost = purchased_equipment['PurchaseCost'].sum() if 'PurchaseCost' in purchased_equipment.columns else 0
+        total_purchase_service = purchased_equipment['AnnualServiceCost'].sum() if 'AnnualServiceCost' in purchased_equipment.columns else 0
+        total_purchase_accreditation = purchased_equipment['AnnualAccreditationCost'].sum() if 'AnnualAccreditationCost' in purchased_equipment.columns else 0
+        total_purchase_insurance = purchased_equipment['AnnualInsuranceCost'].sum() if 'AnnualInsuranceCost' in purchased_equipment.columns else 0
+        
+        avg_lifespan = purchased_equipment['Lifespan'].mean() if 'Lifespan' in purchased_equipment.columns else 10
+        annual_depreciation = total_purchase_cost / avg_lifespan
+        
+        annual_costs['Purchased']['Depreciation'] = annual_depreciation
+        annual_costs['Purchased']['Service'] = total_purchase_service
+        annual_costs['Purchased']['Accreditation'] = total_purchase_accreditation
+        annual_costs['Purchased']['Insurance'] = total_purchase_insurance
+        annual_costs['Purchased']['Total'] = annual_depreciation + total_purchase_service + total_purchase_accreditation + total_purchase_insurance
+    
+    # Create annual cost comparison (FIGURE 1)
+    if annual_costs['Leased'] and annual_costs['Purchased']:
+        # Both leased and purchased equipment exist, create side-by-side comparison
+        categories = ['Leased', 'Purchased']
+        lease_cost = annual_costs['Leased']['Total']
+        purchase_cost = annual_costs['Purchased']['Total']
+        
+        x = np.arange(len(categories))
+        width = 0.35
+        
+        # Create main bars for total costs
+        bars1 = ax1.bar(x, [lease_cost, purchase_cost], width, color=['#e74c3c', '#3498db'])
+        
+        # Add data labels on the bars
+        for bar in bars1:
+            height = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
+                   f'${height:,.0f}',
+                   ha='center', va='bottom')
+        
+        # Set chart properties
+        ax1.set_ylabel('Annual Cost ($)')
+        ax1.set_title('Annual Cost Comparison: Leased vs. Purchased Equipment')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(categories)
+        
+        # Add a breakdown of costs below the chart
+        breakdown_text = f"""
+        Leased Equipment Annual Costs:
+        - Lease Payments: ${annual_costs['Leased'].get('Lease Payment', 0):,.0f}
+        - Service: ${annual_costs['Leased'].get('Service', 0):,.0f}
+        - Accreditation: ${annual_costs['Leased'].get('Accreditation', 0):,.0f}
+        - Insurance: ${annual_costs['Leased'].get('Insurance', 0):,.0f}
+        - Total Annual Cost: ${annual_costs['Leased'].get('Total', 0):,.0f}
+        
+        Purchased Equipment Annual Costs:
+        - Depreciation: ${annual_costs['Purchased'].get('Depreciation', 0):,.0f}
+        - Service: ${annual_costs['Purchased'].get('Service', 0):,.0f}
+        - Accreditation: ${annual_costs['Purchased'].get('Accreditation', 0):,.0f}
+        - Insurance: ${annual_costs['Purchased'].get('Insurance', 0):,.0f}
+        - Total Annual Cost: ${annual_costs['Purchased'].get('Total', 0):,.0f}
+        
+        Note: Depreciation is calculated using average lifespan.
+        """
+        
+        # Add the text as an annotation at the bottom of the chart
+        ax1.annotate(breakdown_text, (0.5, -0.4), xycoords='axes fraction', 
+                   ha='center', va='center', fontsize=9,
+                   bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8))
+        
+        # Adjust figure size to accommodate annotation
+        fig1.set_figheight(8)
+        fig1.tight_layout()
+        plt.subplots_adjust(bottom=0.4)
+        
+        # Format y-axis with dollar signs
+        ax1.yaxis.set_major_formatter(mticker.FuncFormatter(format_currency))
+    
+    # Create cumulative cost comparison over time (FIGURE 2)
+    # Initialize cumulative costs
+    leased_costs = []
+    purchased_costs = []
+    
+    # Calculate cumulative costs over years
+    for year in range(1, years + 1):
+        # For leased equipment: Annual costs * years
+        if annual_costs['Leased']:
+            leased_annual = annual_costs['Leased']['Total']
+            leased_cumulative = leased_annual * year
+            leased_costs.append(leased_cumulative)
+        else:
+            leased_costs.append(0)
+        
+        # For purchased equipment: Upfront cost + annual costs * years
+        if annual_costs['Purchased']:
+            # Upfront cost is the total purchase cost
+            upfront_cost = total_purchase_cost if 'total_purchase_cost' in locals() else 0
+            
+            # Annual costs excluding depreciation
+            annual_service = annual_costs['Purchased'].get('Service', 0)
+            annual_accreditation = annual_costs['Purchased'].get('Accreditation', 0) 
+            annual_insurance = annual_costs['Purchased'].get('Insurance', 0)
+            recurring_annual = annual_service + annual_accreditation + annual_insurance
+            
+            purchased_cumulative = upfront_cost + (recurring_annual * year)
+            purchased_costs.append(purchased_cumulative)
+        else:
+            purchased_costs.append(0)
+    
+    # Plot cumulative costs over time
+    years_list = list(range(1, years + 1))
+    
+    if leased_costs and purchased_costs:
+        # Plot cumulative costs
+        ax2.plot(years_list, leased_costs, 'o-', color='#e74c3c', label='Leased Equipment')
+        ax2.plot(years_list, purchased_costs, 's-', color='#3498db', label='Purchased Equipment')
+        
+        # Find intersection point (breakeven year)
+        breakeven_year = None
+        for i in range(len(years_list) - 1):
+            if (leased_costs[i] <= purchased_costs[i] and leased_costs[i+1] > purchased_costs[i+1]) or \
+               (leased_costs[i] >= purchased_costs[i] and leased_costs[i+1] < purchased_costs[i+1]):
+                breakeven_year = years_list[i+1]
+                break
+        
+        # Highlight breakeven point if exists
+        if breakeven_year:
+            idx = breakeven_year - 1  # Adjust for zero-indexing
+            breakeven_cost = (leased_costs[idx] + purchased_costs[idx]) / 2
+            ax2.plot(breakeven_year, breakeven_cost, 'ro', markersize=10)
+            ax2.annotate(f'Breakeven: Year {breakeven_year}',
+                      (breakeven_year, breakeven_cost),
+                      xytext=(10, 20),
+                      textcoords='offset points',
+                      arrowprops=dict(arrowstyle='->'),
+                      color='red')
+        
+        # Add labels and grid
+        ax2.set_xlabel('Years')
+        ax2.set_ylabel('Cumulative Cost ($)')
+        ax2.set_title('Cumulative Cost Comparison: Leased vs. Purchased Equipment')
+        ax2.grid(True, linestyle='--', alpha=0.7)
+        ax2.set_xticks(years_list)
+        
+        # Add legend
+        ax2.legend()
+        
+        # Format y-axis with dollar signs
+        ax2.yaxis.set_major_formatter(mticker.FuncFormatter(format_currency))
+        
+        # Annotate insights
+        if leased_costs[-1] > purchased_costs[-1]:
+            insight = f"Over {years} years, purchasing is ${leased_costs[-1] - purchased_costs[-1]:,.0f} less expensive than leasing."
+        else:
+            insight = f"Over {years} years, leasing is ${purchased_costs[-1] - leased_costs[-1]:,.0f} less expensive than purchasing."
+        
+        ax2.annotate(insight, (0.5, -0.15), xycoords='axes fraction', 
+                   ha='center', va='center', fontsize=10,
+                   bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8))
+        
+        # Adjust figure size
+        fig2.tight_layout()
+        plt.subplots_adjust(bottom=0.2)
+    
+    return fig1, fig2
+
+
 def create_comprehensive_proforma_plot(results: Dict[str, Any]) -> Tuple[plt.Figure, plt.Figure]:
     """
     Create plots for the comprehensive proforma.

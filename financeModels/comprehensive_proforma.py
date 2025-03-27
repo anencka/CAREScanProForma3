@@ -10,6 +10,66 @@ from financeModels.exam_revenue import ExamRevenueCalculator
 from financeModels.equipment_expenses import EquipmentExpenseCalculator
 from financeModels.other_expenses import OtherExpensesCalculator
 
+def update_comprehensive_proforma_for_equipment_expenses(proforma_results, annual_equipment_expenses):
+    """
+    Update equipment expenses in comprehensive proforma results to handle leased equipment.
+    
+    Args:
+        proforma_results: The results dictionary being built in the comprehensive proforma
+        annual_equipment_expenses: Annual equipment expenses from the equipment calculator
+        
+    Returns:
+        Updated proforma_results with proper lease handling
+    """
+    # Ensure the equipment expenses structure has a 'lease' category
+    if 'expenses' in proforma_results and 'equipment' in proforma_results['expenses']:
+        equipment_expenses = proforma_results['expenses']['equipment']
+        
+        # Add lease category if it doesn't exist
+        if 'lease' not in equipment_expenses:
+            years = proforma_results['years']
+            equipment_expenses['lease'] = {year: 0 for year in years}
+    
+    # Extract lease expenses from annual equipment expenses
+    if 'LeaseExpense' in annual_equipment_expenses.columns:
+        lease_by_year = annual_equipment_expenses.groupby('Year')['LeaseExpense'].sum()
+        
+        # Update the lease expenses in the results
+        for year, amount in lease_by_year.items():
+            if year in proforma_results['expenses']['equipment']['lease']:
+                proforma_results['expenses']['equipment']['lease'][year] = amount
+    
+    # Recalculate total equipment expenses for each year
+    for year in proforma_results['years']:
+        proforma_results['expenses']['equipment']['total'][year] = (
+            proforma_results['expenses']['equipment']['depreciation'].get(year, 0) +
+            proforma_results['expenses']['equipment']['lease'].get(year, 0) +
+            proforma_results['expenses']['equipment']['service'].get(year, 0) +
+            proforma_results['expenses']['equipment']['accreditation'].get(year, 0) +
+            proforma_results['expenses']['equipment']['insurance'].get(year, 0)
+        )
+        
+        # Update the total expenses for this year
+        proforma_results['expenses']['total'][year] = (
+            proforma_results['expenses']['equipment']['total'][year] +
+            proforma_results['expenses']['personnel'].get(year, 0) +
+            proforma_results['expenses']['other'].get(year, 0)
+        )
+        
+        # Update net income
+        proforma_results['net_income'][year] = (
+            proforma_results['revenue'].get(year, 0) - 
+            proforma_results['expenses']['total'][year]
+        )
+    
+    # Recalculate cumulative net income
+    cumulative = 0
+    for year in sorted(proforma_results['years']):
+        cumulative += proforma_results['net_income'][year]
+        proforma_results['cumulative_net_income'][year] = cumulative
+    
+    return proforma_results
+
 class ComprehensiveProformaCalculator:
     """
     A class to calculate a comprehensive financial proforma integrating personnel,
@@ -226,8 +286,12 @@ class ComprehensiveProformaCalculator:
         
         # Calculate equipment expenses
         equipment_results = self._calculate_equipment_expenses(start_date, end_date)
-        
-        # Calculate other expenses and revenue
+
+    
+        if equipment_results and 'annual' in equipment_results:
+            results = update_comprehensive_proforma_for_equipment_expenses(
+                results, equipment_results['annual'])
+            # Calculate other expenses and revenue
         other_results = self._calculate_other_expenses(start_date, end_date)
         
         # Integrate all results
@@ -269,18 +333,35 @@ class ComprehensiveProformaCalculator:
             work_days_per_year=work_days_per_year
         )
     
+    # def _calculate_equipment_expenses(self, start_date: str, end_date: str) -> Dict:
+    #     """Calculate equipment expenses for the proforma."""
+    #     annual_expenses = self.equipment_calculator.calculate_annual_expenses(start_date, end_date)
+    #     total_by_equipment = self.equipment_calculator.calculate_total_by_equipment(start_date, end_date)
+    #     grand_total = self.equipment_calculator.calculate_grand_total(start_date, end_date)
+        
+    #     return {
+    #         'annual': annual_expenses,
+    #         'by_category': total_by_equipment,
+    #         'total': grand_total,
+    #         'monthly': self._convert_equipment_annual_to_monthly(annual_expenses)
+    #     }
+    
     def _calculate_equipment_expenses(self, start_date: str, end_date: str) -> Dict:
         """Calculate equipment expenses for the proforma."""
         annual_expenses = self.equipment_calculator.calculate_annual_expenses(start_date, end_date)
         total_by_equipment = self.equipment_calculator.calculate_total_by_equipment(start_date, end_date)
         grand_total = self.equipment_calculator.calculate_grand_total(start_date, end_date)
         
-        return {
+        results = {
             'annual': annual_expenses,
             'by_category': total_by_equipment,
             'total': grand_total,
             'monthly': self._convert_equipment_annual_to_monthly(annual_expenses)
         }
+        
+        return results
+
+    
     
     def _convert_equipment_annual_to_monthly(self, annual_expenses: pd.DataFrame) -> pd.DataFrame:
         """
@@ -328,6 +409,7 @@ class ComprehensiveProformaCalculator:
             'summary': summary
         }
     
+
     def _integrate_results(self, 
                          personnel_results: Dict,
                          exam_results: pd.DataFrame,
@@ -444,18 +526,38 @@ class ComprehensiveProformaCalculator:
             else:
                 row['Personnel_Expenses'] = 0
             
-            # Add equipment expenses
+                # Add equipment expenses - now handling both lease and depreciation
             if not equipment_results['annual'].empty:
                 if 'Year' in equipment_results['annual'].columns:
-                    year_equipment = equipment_results['annual'][
+                    year_equipment_data = equipment_results['annual'][
                         equipment_results['annual']['Year'] == year
-                    ]['TotalAnnualExpense'].sum()
-                    row['Equipment_Expenses'] = year_equipment
+                    ]
+                    
+                    # Sum all expense types
+                    total_equipment_expense = year_equipment_data['TotalAnnualExpense'].sum()
+                    
+                    # Also track lease vs depreciation amounts separately for better reporting
+                    lease_expense = 0
+                    if 'LeaseExpense' in year_equipment_data.columns:
+                        lease_expense = year_equipment_data['LeaseExpense'].sum()
+                    
+                    depreciation_expense = 0
+                    if 'AnnualDepreciation' in year_equipment_data.columns:
+                        depreciation_expense = year_equipment_data['AnnualDepreciation'].sum()
+                    
+                    # Add all values to the row
+                    row['Equipment_Expenses'] = total_equipment_expense
+                    row['Equipment_Lease_Expenses'] = lease_expense  # New field
+                    row['Equipment_Depreciation_Expenses'] = depreciation_expense  # New field
                 else:
                     # If 'Year' is not in columns, it might be a different structure
                     row['Equipment_Expenses'] = 0
+                    row['Equipment_Lease_Expenses'] = 0
+                    row['Equipment_Depreciation_Expenses'] = 0
             else:
                 row['Equipment_Expenses'] = 0
+                row['Equipment_Lease_Expenses'] = 0
+                row['Equipment_Depreciation_Expenses'] = 0
             
             # Add exam direct expenses
             if not exam_results.empty:

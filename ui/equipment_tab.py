@@ -1,13 +1,14 @@
 """
-Equipment expenses tab for the CAREScan ProForma Editor.
+Updated equipment tab UI with leasing options for the CAREScan ProForma Editor.
 
-This module contains the UI components and logic for the Equipment tab.
+This module contains the updated UI components and logic for the Equipment tab.
 """
 
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import numpy as np
 from typing import Dict, List, Tuple, Any, Optional
 from datetime import date
 
@@ -17,7 +18,7 @@ from visualization import create_equipment_expenses_plot, setup_plot_style, form
 
 def render_equipment_tab(st_obj):
     """
-    Render the Equipment tab UI.
+    Render the Equipment tab UI with lease options.
     
     Args:
         st_obj: Streamlit instance
@@ -26,8 +27,9 @@ def render_equipment_tab(st_obj):
     
     # Explanation of this tab
     st_obj.info(
-        "This tab allows you to edit equipment data and calculate depreciation expenses. "
-        "Enter equipment information including purchase dates, costs, and useful life."
+        "This tab allows you to edit equipment data and calculate expenses. "
+        "You can specify whether equipment is purchased or leased. "
+        "For leased equipment, enter the annual lease amount instead of purchase cost."
     )
     
     # Load data
@@ -36,56 +38,160 @@ def render_equipment_tab(st_obj):
     if equipment_df is None or equipment_df.empty:
         st_obj.warning("No equipment data available. Please add equipment information.")
         equipment_df = pd.DataFrame({
-            "Equipment": [""],
-            "Purchase_Date": ["01/01/2025"],
-            "Cost": [0],
-            "Useful_Life": [5],
-            "Notes": [""]
+            "Title": [""],
+            "PurchaseDate": ["01/01/2025"],
+            "PurchaseCost": [0],
+            "Quantity": [1],
+            "Lifespan": [5],
+            "ConstructionTime": [0],
+            "AnnualServiceCost": [0],
+            "AnnualAccreditationCost": [0],
+            "AnnualInsuranceCost": [0],
+            "MilageCost": [0],
+            "SetupTime": [0],
+            "TakedownTime": [0],
+            "NecessaryStaff": [""],
+            "ExamsOffered": [""],
+            "IsLeased": [False],
+            "AnnualLeaseAmount": [0]
         })
+    
+    # Ensure lease columns exist
+    if 'IsLeased' not in equipment_df.columns:
+        equipment_df['IsLeased'] = False
+    
+    if 'AnnualLeaseAmount' not in equipment_df.columns:
+        equipment_df['AnnualLeaseAmount'] = 0
     
     # Convert string dates to datetime objects for the data editor
     try:
-        if "Purchase_Date" in equipment_df.columns:
-            equipment_df["Purchase_Date"] = pd.to_datetime(equipment_df["Purchase_Date"], errors='coerce')
+        if "PurchaseDate" in equipment_df.columns:
+            equipment_df["PurchaseDate"] = pd.to_datetime(equipment_df["PurchaseDate"], errors='coerce')
     except Exception as e:
         st_obj.warning(f"Could not convert date columns: {str(e)}")
     
-    # Create data editor
+    # Ensure boolean type for IsLeased
+    equipment_df['IsLeased'] = equipment_df['IsLeased'].astype(bool)
+    
+    # Create data editor with lease options
     st_obj.subheader("Equipment Data")
+    
+    # Add a help text about leasing
+    st_obj.markdown("""
+    ℹ️ **Leasing vs. Purchasing**:
+    - For **leased equipment**, check the "Is Leased" box and enter the annual lease amount.
+    - For **purchased equipment**, leave "Is Leased" unchecked and enter the purchase cost.
+    """)
+    
     edited_df = st_obj.data_editor(
         equipment_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "Equipment": st_obj.column_config.TextColumn(
+            "Title": st_obj.column_config.TextColumn(
                 "Equipment Name",
                 help="Name or description of the equipment"
             ),
-            "Purchase_Date": st_obj.column_config.DateColumn(
-                "Purchase Date",
-                help="Date of purchase or planned purchase",
+            "PurchaseDate": st_obj.column_config.DateColumn(
+                "Purchase/Lease Date",
+                help="Date of purchase or start of lease",
                 format="MM/DD/YYYY",
                 min_value=date(2020, 1, 1),
                 max_value=date(2050, 12, 31)
             ),
-            "Cost": st_obj.column_config.NumberColumn(
-                "Cost ($)",
-                help="Total cost of equipment including installation",
+            "IsLeased": st_obj.column_config.CheckboxColumn(
+                "Is Leased",
+                help="Check if equipment is leased rather than purchased"
+            ),
+            "PurchaseCost": st_obj.column_config.NumberColumn(
+                "Purchase Cost ($)",
+                help="Total cost of equipment including installation (for purchased equipment)",
                 min_value=0,
                 max_value=10000000,
                 step=1000,
                 format="$%d"
             ),
-            "Useful_Life": st_obj.column_config.NumberColumn(
+            "AnnualLeaseAmount": st_obj.column_config.NumberColumn(
+                "Annual Lease Amount ($)",
+                help="Annual lease payment amount (for leased equipment)",
+                min_value=0,
+                max_value=1000000,
+                step=1000,
+                format="$%d"
+            ),
+            "Quantity": st_obj.column_config.NumberColumn(
+                "Quantity",
+                help="Number of units",
+                min_value=1,
+                max_value=100,
+                step=1
+            ),
+            "Lifespan": st_obj.column_config.NumberColumn(
                 "Useful Life (Years)",
                 help="Expected useful life in years for depreciation",
                 min_value=1,
                 max_value=30,
                 step=1
             ),
-            "Notes": st_obj.column_config.TextColumn(
-                "Notes",
-                help="Additional information about this equipment"
+            "ConstructionTime": st_obj.column_config.NumberColumn(
+                "Construction Time (Days)",
+                help="Number of days needed for construction/setup before equipment is available",
+                min_value=0,
+                max_value=365,
+                step=1
+            ),
+            "AnnualServiceCost": st_obj.column_config.NumberColumn(
+                "Annual Service Cost ($)",
+                help="Annual cost for service contracts and maintenance",
+                min_value=0,
+                max_value=500000,
+                step=1000,
+                format="$%d"
+            ),
+            "AnnualAccreditationCost": st_obj.column_config.NumberColumn(
+                "Annual Accreditation Cost ($)",
+                help="Annual cost for accreditation and compliance",
+                min_value=0,
+                max_value=100000,
+                step=1000,
+                format="$%d"
+            ),
+            "AnnualInsuranceCost": st_obj.column_config.NumberColumn(
+                "Annual Insurance Cost ($)",
+                help="Annual cost for insurance",
+                min_value=0,
+                max_value=100000,
+                step=1000,
+                format="$%d"
+            ),
+            "MilageCost": st_obj.column_config.NumberColumn(
+                "Mileage Cost ($/mile)",
+                help="Cost per mile for travel",
+                min_value=0,
+                max_value=100,
+                step=1
+            ),
+            "SetupTime": st_obj.column_config.NumberColumn(
+                "Setup Time (min)",
+                help="Time in minutes to set up equipment at a location",
+                min_value=0,
+                max_value=480,
+                step=15
+            ),
+            "TakedownTime": st_obj.column_config.NumberColumn(
+                "Takedown Time (min)",
+                help="Time in minutes to take down equipment at a location",
+                min_value=0,
+                max_value=480,
+                step=15
+            ),
+            "NecessaryStaff": st_obj.column_config.TextColumn(
+                "Necessary Staff",
+                help="Staff types required for this equipment (semicolon-separated)"
+            ),
+            "ExamsOffered": st_obj.column_config.TextColumn(
+                "Exams Offered",
+                help="Exams that can be performed with this equipment (semicolon-separated)"
             )
         }
     )
@@ -93,11 +199,28 @@ def render_equipment_tab(st_obj):
     # Save changes if data was edited
     if not edited_df.equals(equipment_df):
         if st_obj.button("Save Equipment Changes"):
+            # Validate leased vs purchased equipment
+            for idx, row in edited_df.iterrows():
+                if row['IsLeased']:
+                    # For leased equipment, purchase cost should be 0
+                    if row['PurchaseCost'] > 0:
+                        edited_df.at[idx, 'PurchaseCost'] = 0
+                        st_obj.info(f"Purchase cost for {row['Title']} was set to 0 because it is leased.")
+                    # Lease amount should be greater than 0
+                    if row['AnnualLeaseAmount'] <= 0:
+                        st_obj.error(f"Please enter an annual lease amount for {row['Title']}.")
+                        return
+                else:
+                    # For purchased equipment, purchase cost should be > 0
+                    if row['PurchaseCost'] <= 0:
+                        st_obj.error(f"Please enter a purchase cost for {row['Title']}.")
+                        return
+            
             # Convert datetime objects back to string format before saving
             save_df = edited_df.copy()
             try:
-                if "Purchase_Date" in save_df.columns:
-                    save_df["Purchase_Date"] = save_df["Purchase_Date"].dt.strftime('%m/%d/%Y')
+                if "PurchaseDate" in save_df.columns:
+                    save_df["PurchaseDate"] = save_df["PurchaseDate"].dt.strftime('%m/%d/%Y')
             except Exception as e:
                 st_obj.warning(f"Could not format date columns for saving: {str(e)}")
             
@@ -194,7 +317,7 @@ def render_equipment_tab(st_obj):
 
 def render_equipment_results(st_obj, results, equipment_df, start_date, end_date):
     """
-    Render the equipment expense calculation results.
+    Render the equipment expense calculation results with lease expenses.
     
     Args:
         st_obj: Streamlit instance
@@ -226,7 +349,11 @@ def render_equipment_results(st_obj, results, equipment_df, start_date, end_date
     with metric_col1:
         st_obj.metric("Total Purchase Cost", f"${grand_total.get('TotalPurchaseCost', 0):,.2f}")
     with metric_col2:
-        st_obj.metric("Total Depreciation", f"${grand_total.get('TotalDepreciation', 0):,.2f}")
+        lease_total = grand_total.get('TotalLeaseExpense', 0)
+        if lease_total > 0:
+            st_obj.metric("Total Lease Expenses", f"${lease_total:,.2f}")
+        else:
+            st_obj.metric("Total Depreciation", f"${grand_total.get('TotalDepreciation', 0):,.2f}")
     with metric_col3:
         st_obj.metric("Total Annual Expenses", f"${grand_total.get('TotalAnnualExpense', 0):,.2f}")
     
@@ -246,121 +373,201 @@ def render_equipment_results(st_obj, results, equipment_df, start_date, end_date
     
     # Format the table for display
     display_df = expenses_by_equipment.copy()
-    for col in ['PurchaseCost', 'AnnualDepreciation', 'ServiceCost', 
-              'AccreditationCost', 'InsuranceCost', 'TravelExpense', 'TotalAnnualExpense']:
+    for col in ['PurchaseCost', 'AnnualDepreciation', 'LeaseExpense', 'ServiceCost', 
+               'AccreditationCost', 'InsuranceCost', 'TravelExpense', 'TotalAnnualExpense']:
         if col in display_df.columns:
             display_df[col] = display_df[col].map('${:,.2f}'.format)
     
     st_obj.dataframe(display_df)
     
-    # 1. Annual Expenses by Equipment Type
+    # 1. Annual Expenses by Equipment Type and Acquisition Method
     st_obj.subheader("Annual Expenses by Equipment Type")
     
     if 'Title' in annual_expenses.columns:
         fig1, ax1 = plt.subplots(figsize=(12, 6))
         
-        # Plot stacked bar chart of expenses by equipment type
-        pivot_df = annual_expenses.pivot_table(
-            index='Title',
-            values=['ServiceCost', 'AccreditationCost', 'InsuranceCost', 'TravelExpense'],
-            aggfunc='sum'
-        )
+        # Split data into leased and purchased equipment
+        leased_equipment = expenses_by_equipment[expenses_by_equipment['IsLeased'] == True]
+        purchased_equipment = expenses_by_equipment[expenses_by_equipment['IsLeased'] == False]
         
-        pivot_df.plot(kind='bar', stacked=True, ax=ax1)
+        # Create stacked bar chart - purchased equipment expenses
+        purchased_data = []
+        purchased_titles = []
+        if not purchased_equipment.empty:
+            purchased_titles = purchased_equipment['Title'].tolist()
+            
+            # Create data for plotting
+            depreciation = purchased_equipment.get('AnnualDepreciation', pd.Series([0] * len(purchased_equipment))).tolist()
+            service = purchased_equipment.get('ServiceCost', pd.Series([0] * len(purchased_equipment))).tolist()
+            accreditation = purchased_equipment.get('AccreditationCost', pd.Series([0] * len(purchased_equipment))).tolist()
+            insurance = purchased_equipment.get('InsuranceCost', pd.Series([0] * len(purchased_equipment))).tolist()
+            travel = purchased_equipment.get('TravelExpense', pd.Series([0] * len(purchased_equipment))).tolist()
+            
+            width = 0.35
+            x_pos = np.arange(len(purchased_titles))
+            
+            # Create stacked bars for purchased equipment
+            if len(x_pos) > 0:
+                ax1.bar(x_pos, depreciation, width, label='Depreciation', color='#1f77b4')
+                ax1.bar(x_pos, service, width, bottom=depreciation, label='Service', color='#ff7f0e')
+                ax1.bar(x_pos, accreditation, width, bottom=[d+s for d,s in zip(depreciation, service)], label='Accreditation', color='#2ca02c')
+                ax1.bar(x_pos, insurance, width, bottom=[d+s+a for d,s,a in zip(depreciation, service, accreditation)], label='Insurance', color='#d62728')
+                ax1.bar(x_pos, travel, width, bottom=[d+s+a+i for d,s,a,i in zip(depreciation, service, accreditation, insurance)], label='Travel', color='#9467bd')
+        
+        # Leased equipment expenses
+        leased_data = []
+        leased_titles = []
+        if not leased_equipment.empty:
+            leased_titles = leased_equipment['Title'].tolist()
+            
+            # Create data for plotting
+            lease = leased_equipment.get('LeaseExpense', pd.Series([0] * len(leased_equipment))).tolist()
+            service = leased_equipment.get('ServiceCost', pd.Series([0] * len(leased_equipment))).tolist()
+            accreditation = leased_equipment.get('AccreditationCost', pd.Series([0] * len(leased_equipment))).tolist()
+            insurance = leased_equipment.get('InsuranceCost', pd.Series([0] * len(leased_equipment))).tolist()
+            travel = leased_equipment.get('TravelExpense', pd.Series([0] * len(leased_equipment))).tolist()
+            
+            width = 0.35
+            x_pos = np.arange(len(leased_titles)) + len(purchased_titles) + 1  # Offset for purchased equipment
+            
+            # Create stacked bars for leased equipment
+            if len(x_pos) > 0:
+                ax1.bar(x_pos, lease, width, label='Lease Payment', color='#8c564b')
+                ax1.bar(x_pos, service, width, bottom=lease, label='Service' if len(purchased_titles) == 0 else "", color='#ff7f0e')
+                ax1.bar(x_pos, accreditation, width, bottom=[l+s for l,s in zip(lease, service)], label='Accreditation' if len(purchased_titles) == 0 else "", color='#2ca02c')
+                ax1.bar(x_pos, insurance, width, bottom=[l+s+a for l,s,a in zip(lease, service, accreditation)], label='Insurance' if len(purchased_titles) == 0 else "", color='#d62728')
+                ax1.bar(x_pos, travel, width, bottom=[l+s+a+i for l,s,a,i in zip(lease, service, accreditation, insurance)], label='Travel' if len(purchased_titles) == 0 else "", color='#9467bd')
+        
+        # Combine titles and set axes
+        all_titles = purchased_titles + leased_titles
+        all_x_pos = list(range(len(all_titles)))
+        
+        # Set axes and labels
         ax1.set_title('Annual Expenses by Equipment Type')
         ax1.set_xlabel('Equipment')
         ax1.set_ylabel('Annual Expense ($)')
+        ax1.set_xticks(all_x_pos)
+        ax1.set_xticklabels(all_titles, rotation=45, ha='right')
         ax1.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.xticks(rotation=45)
+        ax1.legend()
+        
+        # Format y-axis with dollar signs
+        fmt = '${x:,.0f}'
+        tick = mticker.StrMethodFormatter(fmt)
+        ax1.yaxis.set_major_formatter(tick)
+        
+        # Add a dashed line between purchased and leased
+        if len(purchased_titles) > 0 and len(leased_titles) > 0:
+            ax1.axvline(x=len(purchased_titles) - 0.5, color='black', linestyle='--', alpha=0.7)
+        
         plt.tight_layout()
         st_obj.pyplot(fig1)
-    
-    # 2. Annual Depreciation by Equipment Type
-    st_obj.subheader("Annual Depreciation by Equipment Type")
-    
-    if 'Title' in expenses_by_equipment.columns and 'AnnualDepreciation' in expenses_by_equipment.columns:
-        fig2, ax2 = plt.subplots(figsize=(12, 6))
         
-        # Plot bar chart of annual depreciation
-        depreciation_by_equipment = expenses_by_equipment.set_index('Title')['AnnualDepreciation']
-        depreciation_by_equipment.plot(kind='bar', ax=ax2, color='skyblue')
-        ax2.set_title('Annual Depreciation by Equipment Type')
-        ax2.set_xlabel('Equipment')
-        ax2.set_ylabel('Annual Depreciation ($)')
-        ax2.grid(axis='y', linestyle='--', alpha=0.7)
-        
-        for i, v in enumerate(depreciation_by_equipment):
-            ax2.text(i, v + 0.1, f"${v:,.0f}", ha='center')
-        
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        st_obj.pyplot(fig2)
+        # Add an explanation about leased vs purchased equipment
+        if len(purchased_titles) > 0 and len(leased_titles) > 0:
+            st_obj.info(
+                "The chart shows both purchased equipment (left) with depreciation expense and "
+                "leased equipment (right) with lease payments. Both types incur service, accreditation, "
+                "insurance, and travel costs."
+            )
     
-    # 3. Annual Expenses Over Time
+    # 2. Annual Expenses Over Time with lease vs purchase breakdown
     st_obj.subheader("Equipment Expenses Over Time")
     
     if 'Year' in annual_expenses.columns:
-        # Group expenses by year
+        # Group expenses by year and track lease vs depreciation
         yearly_expenses = annual_expenses.groupby('Year').agg({
+            'LeaseExpense': 'sum',
+            'AnnualDepreciation': 'sum',
             'ServiceCost': 'sum',
             'AccreditationCost': 'sum',
             'InsuranceCost': 'sum',
             'TravelExpense': 'sum',
-            'AnnualDepreciation': 'sum',
             'TotalAnnualExpense': 'sum'
         })
         
         # Create line chart of expenses over time
         fig3, ax3 = plt.subplots(figsize=(12, 6))
         
-        # Use distinct colors, line styles, and markers for each expense type
-        yearly_expenses['ServiceCost'].plot(
-            kind='line', 
-            marker='o',
-            ax=ax3,
-            linewidth=3,
-            color='darkblue',
-            label='Service Cost'
-        )
+        # Plot lines with markers for each expense type
+        years = yearly_expenses.index.tolist()
         
-        yearly_expenses['AccreditationCost'].plot(
-            kind='line', 
-            marker='s',
-            ax=ax3,
-            linewidth=3,
-            linestyle='--',
-            color='darkgreen',
-            label='Accreditation Cost'
-        )
+        # Plot both lease and depreciation expenses
+        if 'LeaseExpense' in yearly_expenses.columns and yearly_expenses['LeaseExpense'].sum() > 0:
+            yearly_expenses['LeaseExpense'].plot(
+                kind='line', 
+                marker='o',
+                ax=ax3,
+                linewidth=3,
+                color='#8c564b',
+                label='Lease Payments'
+            )
         
-        yearly_expenses['InsuranceCost'].plot(
-            kind='line', 
-            marker='^',
-            ax=ax3,
-            linewidth=3,
-            linestyle=':',
-            color='darkred',
-            label='Insurance Cost'
-        )
+        if 'AnnualDepreciation' in yearly_expenses.columns and yearly_expenses['AnnualDepreciation'].sum() > 0:
+            yearly_expenses['AnnualDepreciation'].plot(
+                kind='line', 
+                marker='x',
+                ax=ax3,
+                linewidth=3,
+                color='#1f77b4',
+                label='Depreciation'
+            )
         
-        yearly_expenses['TravelExpense'].plot(
-            kind='line', 
-            marker='d',
-            ax=ax3,
-            linewidth=3,
-            linestyle='-.',
-            color='darkorange',
-            label='Travel Expense'
-        )
+        # Add other expense lines
+        if 'ServiceCost' in yearly_expenses.columns:
+            yearly_expenses['ServiceCost'].plot(
+                kind='line', 
+                marker='s',
+                ax=ax3,
+                linewidth=3,
+                linestyle='--',
+                color='#ff7f0e',
+                label='Service Cost'
+            )
         
-        yearly_expenses['AnnualDepreciation'].plot(
-            kind='line', 
-            marker='x',
-            ax=ax3,
-            linewidth=3,
-            color='purple',
-            label='Annual Depreciation'
-        )
+        if 'AccreditationCost' in yearly_expenses.columns:
+            yearly_expenses['AccreditationCost'].plot(
+                kind='line', 
+                marker='^',
+                ax=ax3,
+                linewidth=3,
+                linestyle=':',
+                color='#2ca02c',
+                label='Accreditation Cost'
+            )
+        
+        if 'InsuranceCost' in yearly_expenses.columns:
+            yearly_expenses['InsuranceCost'].plot(
+                kind='line', 
+                marker='d',
+                ax=ax3,
+                linewidth=3,
+                linestyle='-.',
+                color='#d62728',
+                label='Insurance Cost'
+            )
+        
+        if 'TravelExpense' in yearly_expenses.columns:
+            yearly_expenses['TravelExpense'].plot(
+                kind='line', 
+                marker='p',
+                ax=ax3,
+                linewidth=3,
+                linestyle='-.',
+                color='#9467bd',
+                label='Travel Expense'
+            )
+        
+        # Plot total annual expense
+        if 'TotalAnnualExpense' in yearly_expenses.columns:
+            yearly_expenses['TotalAnnualExpense'].plot(
+                kind='line', 
+                marker='*',
+                ax=ax3,
+                linewidth=4,
+                color='black',
+                label='Total Expenses'
+            )
         
         ax3.set_title('Equipment Expenses Over Time')
         ax3.set_xlabel('Year')
@@ -376,14 +583,15 @@ def render_equipment_results(st_obj, results, equipment_df, start_date, end_date
         ax3.legend(loc='best', frameon=True, fancybox=True, shadow=True)
         
         # Add data labels to the end points for better readability
-        for column in ['ServiceCost', 'AccreditationCost', 'InsuranceCost', 'TravelExpense', 'AnnualDepreciation']:
-            last_year = yearly_expenses.index[-1]
-            last_value = yearly_expenses.loc[last_year, column]
-            ax3.annotate(f'${last_value:,.0f}', 
-                        xy=(last_year, last_value),
-                        xytext=(10, 0),
-                        textcoords='offset points',
-                        va='center')
+        for column in yearly_expenses.columns:
+            if yearly_expenses[column].sum() > 0:
+                last_year = yearly_expenses.index[-1]
+                last_value = yearly_expenses.loc[last_year, column]
+                ax3.annotate(f'${last_value:,.0f}', 
+                           xy=(last_year, last_value),
+                           xytext=(10, 0),
+                           textcoords='offset points',
+                           va='center')
         
         plt.tight_layout()
         st_obj.pyplot(fig3)
@@ -396,21 +604,77 @@ def render_equipment_results(st_obj, results, equipment_df, start_date, end_date
         
         st_obj.dataframe(display_yearly)
         
-        # 4. Total Annual Cost vs. Depreciation
-        st_obj.subheader("Total Annual Cost vs. Depreciation")
+        # 4. Lease vs Purchase Cost Comparison
+        st_obj.subheader("Lease vs Purchase Cost Comparison")
         
-        fig4, ax4 = plt.subplots(figsize=(12, 6))
+        # Check if we have both leased and purchased equipment
+        has_leased = len(leased_equipment) > 0
+        has_purchased = len(purchased_equipment) > 0
         
-        # Create a new DataFrame with just Annual Expenses and Depreciation
-        cost_vs_depreciation = pd.DataFrame({
-            'Annual Expenses': yearly_expenses['TotalAnnualExpense'],
-            'Annual Depreciation': yearly_expenses['AnnualDepreciation']
-        })
-        
-        cost_vs_depreciation.plot(kind='bar', ax=ax4)
-        ax4.set_title('Total Annual Cost vs. Depreciation')
-        ax4.set_xlabel('Year')
-        ax4.set_ylabel('Amount ($)')
-        ax4.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        st_obj.pyplot(fig4) 
+        if has_leased and has_purchased:
+            # Create comparison chart
+            fig4, ax4 = plt.subplots(figsize=(12, 6))
+            
+            # Create a summary of total costs by year for leased vs purchased
+            annual_expenses['IsLeased'] = annual_expenses['IsLeased'].astype(bool)
+            
+            lease_by_year = annual_expenses[annual_expenses['IsLeased']].groupby('Year')['TotalAnnualExpense'].sum()
+            purchase_by_year = annual_expenses[~annual_expenses['IsLeased']].groupby('Year')['TotalAnnualExpense'].sum()
+            
+            # Plot the comparison
+            if not lease_by_year.empty:
+                lease_by_year.plot(
+                    kind='bar',
+                    ax=ax4,
+                    position=0,
+                    width=0.4,
+                    color='#e74c3c',
+                    label='Leased Equipment'
+                )
+            
+            if not purchase_by_year.empty:
+                purchase_by_year.plot(
+                    kind='bar',
+                    ax=ax4,
+                    position=1,
+                    width=0.4,
+                    color='#3498db',
+                    label='Purchased Equipment'
+                )
+            
+            ax4.set_title('Annual Costs: Lease vs Purchase')
+            ax4.set_xlabel('Year')
+            ax4.set_ylabel('Annual Cost ($)')
+            ax4.grid(axis='y', linestyle='--', alpha=0.7)
+            
+            # Format y-axis with dollar signs
+            fmt = '${x:,.0f}'
+            tick = mticker.StrMethodFormatter(fmt)
+            ax4.yaxis.set_major_formatter(tick)
+            
+            # Add legend
+            ax4.legend()
+            
+            plt.tight_layout()
+            st_obj.pyplot(fig4)
+            
+            # Add analysis and explanation
+            st_obj.markdown("""
+            ### Lease vs Purchase Analysis
+            
+            Leasing equipment typically results in:
+            - Lower upfront costs (no large capital expenditure)
+            - Higher annual expenses (lease payments instead of depreciation)
+            - Easier equipment upgrades at the end of the lease term
+            - Maintenance often included in the lease agreement
+            
+            Purchasing equipment typically results in:
+            - Higher upfront costs (capital expenditure)
+            - Lower long-term costs once the equipment is fully depreciated
+            - Asset ownership at the end of the depreciation period
+            - Responsible for all maintenance and upgrades
+            """)
+        elif has_leased:
+            st_obj.info("All equipment is leased. No purchase comparison available.")
+        elif has_purchased:
+            st_obj.info("All equipment is purchased. No lease comparison available.")

@@ -14,3 +14,6 @@ LungNodule,CTTruck,CTTech,30,2,25,50,75,25,18,100,Female; Male,0.42
 Mammography,MamoVan,MammographyTech,25,2,25,75,75,75,40,75,Female,0.5
 ABUS,MamoVan,MammographyTech,30,2,25,100,150,100,18,100,Female,0.05
 DiagnosticCT,CTTruck,CTTech,30,10,10,50,50,146,18,100,Female; Male,0.05
+MRIBrain,MRITruck,MRITech,45,5,30,150,300,250,18,100,Female; Male,0.1
+MRISpine,MRITruck,MRITech,60,5,30,175,350,275,18,100,Female; Male,0.15
+MRIExtremeties,MRITruck,MRITech,40,5,30,125,250,200,18,100,Female; Male,0.08
